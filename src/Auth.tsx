@@ -1,7 +1,5 @@
 import { useState } from "react";
 import { ArrowRight, ArrowUpRight, ShieldCheck } from "lucide-react";
-import Brand from "./BrandLogo";
-import { brand } from "./brand-config";
 import { Form, Field, Submit } from "./components";
 import { enterDemo, identityFromSession, supabase } from "./data";
 import type { Identity } from "./data";
@@ -55,78 +53,48 @@ export default function Auth({
   };
   return (
     <main className="auth">
-      <section
-        className="auth-story"
-        aria-label="About Nexus Virtual Executives"
-      >
-        <a
-          className="auth-brand"
-          href={brand.instagram}
-          target="_blank"
-          rel="noreferrer"
-          aria-label="Nexus Virtual Executives on Instagram"
-        >
-          <Brand />
+      <div className="auth-story">
+        <a className="brand" href="#">
+          <span className="brand-icon">
+            <span aria-hidden="true">N</span>
+          </span>
+          Nexus VA
         </a>
         <div className="auth-copy">
-          <p className="auth-intro">Executive support, delivered.</p>
           <h1>
-            Your business.
+            Your projects.
             <br />
-            <span>Backed by Nexus.</span>
+            Your people.
+            <br />
+            <em>One workspace.</em>
           </h1>
-          <p className="auth-description">
-            Request support, connect with your virtual executive, and keep every
-            deliverable in view.
+          <p>
+            Request support, work with your assistant, and review every delivery
+            in one place.
           </p>
-          <ol className="auth-process" aria-label="How your workspace works">
-            <li>
-              <span>01</span>
-              <div>
-                <strong>Share the brief</strong>
-                <p>Tell us what you need, your budget, and your deadline.</p>
-              </div>
-            </li>
-            <li>
-              <span>02</span>
-              <div>
-                <strong>Work with your executive</strong>
-                <p>Keep the conversation, files, and payments together.</p>
-              </div>
-            </li>
-            <li>
-              <span>03</span>
-              <div>
-                <strong>Review the result</strong>
-                <p>Approve the delivery and share your feedback.</p>
-              </div>
-            </li>
-          </ol>
+          <div className="auth-workflow" aria-label="Your service workflow">
+            <span>Request</span>
+            <ArrowRight size={14} />
+            <span>Collaborate</span>
+            <ArrowRight size={14} />
+            <span>Review</span>
+          </div>
         </div>
-        <footer className="auth-signature">
-          <span>Supporting businesses since 2022</span>
-          <a href={brand.instagram} target="_blank" rel="noreferrer">
-            @nexusvirtualexecutives <ArrowUpRight size={13} />
-          </a>
+        <footer>
+          <span>Client · Assistant · Admin</span>
+          <span>Prototype 1</span>
         </footer>
-      </section>
-      <section className="auth-form-side" aria-label="Workspace sign in">
-        <div className="auth-topline">
-          <span>Client & executive portal</span>
-          <span className="prototype-label">Prototype 1</span>
-        </div>
+      </div>
+      <div className="auth-form-side">
+        <span className="prototype-label">
+          <span /> PROTOTYPE 01
+        </span>
         <div className="auth-form">
-          <h2>
-            {signup
-              ? "Create your client account"
-              : supabase
-                ? "Sign in to your workspace"
-                : "Choose your workspace"}
-          </h2>
+          <h2>{signup ? "Create your client account" : "Welcome to Nexus."}</h2>
           <p>
             {supabase
-              ? "Manage your requests, conversations, and deliveries."
-              : "Explore the client, virtual executive, or admin experience with a demo account."}
+              ? "Sign in to pick up where you left off."
+              : "Choose a demo account to explore service requests, conversations, and deliveries."}
           </p>
           {supabase ? (
             <Form onSubmit={login}>
@@ -177,7 +145,7 @@ export default function Auth({
               >
                 {signup
                   ? "Already have an account? Sign in"
-                  : "New to Nexus? Create a client account"}
+                  : "New here? Create a client account"}
               </button>
             </Form>
           ) : (
@@ -193,56 +161,51 @@ export default function Auth({
                   },
                   {
                     role: "staff",
-                    title: "Executive workspace",
+                    title: "Virtual assistant workspace",
                     name: "Maya Bennett",
-                    description: "Manage assignments and deliver work",
+                    description: "Manage assignments and deliver output",
                     initials: "MB",
                   },
                   {
                     role: "admin",
                     title: "Admin workspace",
                     name: "Jordan Lee",
-                    description: "Oversee people, payments, and output",
+                    description: "Review assignments, payments, and delivery",
                     initials: "JL",
                   },
                 ] as const
-              ).map((p) => (
+              ).map((p, i) => (
                 <button
                   key={p.role}
                   className="demo-login"
                   onClick={() => onLogin(enterDemo(p.role as Role))}
                 >
-                  <span className="demo-person">{p.initials}</span>
+                  <span className={`avatar avatar-${i}`}>{p.initials}</span>
                   <span>
                     <strong>{p.title}</strong>
-                    <small>{p.description}</small>
-                    <span className="demo-account-name">
-                      Demo account · {p.name}
-                    </span>
+                    <small>
+                      Demo: {p.name} · {p.description}
+                    </small>
                   </span>
-                  <ArrowRight size={18} />
+                  <ArrowUpRight size={19} />
                 </button>
               ))}
             </div>
           )}
           <div className="auth-note">
-            <ShieldCheck size={18} />
-            <p>
+            <ShieldCheck size={17} />
+            <span>
               {supabase
-                ? "Protected sign-in with Supabase Auth."
-                : "Demo data stays in this browser. All payments are simulated; no real charges are made."}
-            </p>
+                ? "Your account is protected with Supabase Auth."
+                : "Demo data stays in this browser. Payments are simulated; no real charges are made."}
+            </span>
           </div>
         </div>
         <footer>
-          <span>
-            © {new Date().getFullYear()} {brand.name}
-          </span>
-          <a href={brand.instagram} target="_blank" rel="noreferrer">
-            Meet Nexus <ArrowUpRight size={12} />
-          </a>
+          <span>© {new Date().getFullYear()} Nexus VA</span>
+          <span>Client & staff portal</span>
         </footer>
-      </section>
+      </div>
     </main>
   );
 }

@@ -30,7 +30,6 @@ import {
   ShieldCheck,
   Sparkles,
   Star,
-  TrendingUp,
   Upload,
   Users,
   Video,
@@ -44,7 +43,6 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import type { ColumnDef } from "@tanstack/react-table";
 import Auth from "./Auth";
-import Brand from "./BrandLogo";
 import { brand, companyName } from "./brand-config";
 import sampleOutput from "../docs/sample-output.txt?raw";
 import {
@@ -368,7 +366,7 @@ export default function App() {
   if (loading)
     return (
       <div className="loading-screen">
-        <Brand compact />
+        <strong>Nexus VA</strong>
         <span className="spinner" />
         Opening your workspace…
       </div>
@@ -395,7 +393,7 @@ export default function App() {
   if (!state || !actor)
     return (
       <div className="loading-screen">
-        <Brand compact />
+        <strong>Nexus VA</strong>
         {loadError ? (
           <>
             <p>{loadError}</p>
@@ -463,7 +461,7 @@ export default function App() {
     },
     {
       accessorKey: "assigneeId",
-      header: "Executive",
+      header: "Assistant",
       cell: ({ row }) => {
         const p = person(row.original.assigneeId);
         return p ? (
@@ -605,13 +603,64 @@ export default function App() {
 
   return (
     <div className={`app-shell ${mobile ? "nav-open" : ""}`}>
+      <aside className="rail" aria-label="Quick navigation">
+        <a
+          className="rail-brand"
+          href="#"
+          aria-label="Nexus VA home"
+          onClick={(e) => {
+            e.preventDefault();
+            navigate("Overview");
+          }}
+        >
+          <span aria-hidden="true">N</span>
+        </a>
+        <div className="rail-divider" />
+        {nav.map(({ page: next, icon: Icon }) => (
+          <button
+            key={next}
+            className={`rail-link ${page === next ? "selected" : ""}`}
+            aria-label={next}
+            title={next}
+            onClick={() => navigate(next)}
+          >
+            <Icon size={20} />
+          </button>
+        ))}
+        {actor.role === "admin" && (
+          <button
+            className={`rail-link ${page === "Activity logs" ? "selected" : ""}`}
+            title="Activity logs"
+            aria-label="Activity logs"
+            onClick={() => navigate("Activity logs")}
+          >
+            <ShieldCheck size={20} />
+          </button>
+        )}
+        <div className="rail-bottom">
+          <button
+            className="rail-link"
+            aria-label="Help"
+            onClick={() => setDialog({ type: "help" })}
+          >
+            <CircleHelp size={20} />
+          </button>
+          <button
+            className="rail-avatar"
+            title="Your profile"
+            onClick={() => navigate("Profile")}
+          >
+            <Avatar name={actor.name} color={2} />
+          </button>
+        </div>
+      </aside>
       <aside
         className="sidebar"
         id="workspace-navigation"
         aria-label="Workspace navigation"
       >
         <div className="sidebar-brand">
-          <Brand />
+          Nexus VA
           <button
             className="icon-button mobile-close"
             aria-label="Close navigation"
@@ -630,11 +679,10 @@ export default function App() {
               {actor.role === "client"
                 ? "Client workspace"
                 : actor.role === "staff"
-                  ? "Executive workspace"
+                  ? "Assistant workspace"
                   : "Admin workspace"}
             </small>
           </span>
-          <ChevronDown size={13} />
         </div>
         <span className="nav-label">WORKSPACE</span>
         <nav>
@@ -806,7 +854,7 @@ export default function App() {
                     <small>{actor.email}</small>
                     <Badge>
                       {actor.role === "staff"
-                        ? "Virtual executive"
+                        ? "Virtual assistant"
                         : actor.role}
                     </Badge>
                   </div>
@@ -836,7 +884,7 @@ export default function App() {
                           )}
                           <span>
                             {role === "staff"
-                              ? "Virtual executive"
+                              ? "Virtual assistant"
                               : role === "admin"
                                 ? "Admin"
                                 : "Client"}
@@ -876,7 +924,7 @@ export default function App() {
                 }
                 description={
                   actor.role === "client"
-                    ? "Track your requests, review deliveries, and connect with your executive."
+                    ? "Track your requests, review deliveries, and connect with your assistant."
                     : actor.role === "staff"
                       ? "Manage your current assignments and find work that matches your skills."
                       : "Monitor service delivery, payment status, and team assignments."
@@ -884,10 +932,7 @@ export default function App() {
                 action={actor.role !== "staff" ? requestButton : undefined}
               />
               <div className="dashboard-context">
-                <span>
-                  <span className="online-dot" />
-                  Workspace overview
-                </span>
+                <span>Workspace overview</span>
                 <span>
                   <CalendarDays size={13} />
                   {new Date().toLocaleDateString("en-US", {
@@ -899,12 +944,14 @@ export default function App() {
                 </span>
               </div>
               <div className="spotlight">
-                <div className="spotlight-icon" aria-hidden="true">
-                  {actor.role === "client" && review.length ? (
-                    <FileCheck2 size={27} />
-                  ) : (
-                    <BriefcaseBusiness size={27} />
-                  )}
+                <div className="spotlight-art">
+                  <div className="art-sheet sheet-back" />
+                  <div className="art-sheet sheet-front">
+                    <div className="art-lines" />
+                    <span>
+                      <Check size={18} />
+                    </span>
+                  </div>
                 </div>
                 <div className="spotlight-copy">
                   <span className="spotlight-label">
@@ -922,7 +969,7 @@ export default function App() {
                         ? "Find your next assignment."
                         : actor.role === "admin"
                           ? "Review the service queue."
-                          : "What can your executive help with?"}
+                          : "What can your assistant help with?"}
                   </h2>
                   <p>
                     {actor.role === "client" && review.length
@@ -1058,10 +1105,13 @@ export default function App() {
                       {completed.length} project
                       {completed.length !== 1 ? "s" : ""} completed.
                     </span>
-                    <span>
+                    <button
+                      className="text-button"
+                      onClick={() => navigate("Job services")}
+                    >
                       View your service queue
-                      <TrendingUp size={14} />
-                    </span>
+                      <ArrowUpRight size={14} />
+                    </button>
                   </div>
                 </section>
                 <section className="panel team-panel">
@@ -1069,8 +1119,8 @@ export default function App() {
                     <div>
                       <h2>
                         {actor.role === "client"
-                          ? "Your virtual executives"
-                          : "Executive team"}
+                          ? "Your virtual assistants"
+                          : "Support team"}
                       </h2>
                       <p>Availability and assigned support.</p>
                     </div>
@@ -1102,7 +1152,7 @@ export default function App() {
                       ))}
                   </div>
                   <div className="team-note">
-                    <Sparkles size={16} />
+                    <MessageSquare size={16} />
                     <p>
                       Keep project discussions in the ticket conversation so the
                       team has the full context.
@@ -1146,10 +1196,6 @@ export default function App() {
                       <h2>Recent activity</h2>
                       <p>Messages, payments, and delivery updates.</p>
                     </div>
-                    <span className="live-indicator">
-                      <span />
-                      RECENT
-                    </span>
                   </div>
                   <div className="activity-list">
                     {(actor.role === "admin"
@@ -1892,7 +1938,7 @@ export default function App() {
                   <h2>{actor.name}</h2>
                   <p>{companyName(actor.company)}</p>
                   <Badge>
-                    {actor.role === "staff" ? "Virtual executive" : actor.role}
+                    {actor.role === "staff" ? "Virtual assistant" : actor.role}
                   </Badge>
                   <div className="profile-status">
                     <span className="online-dot" />
@@ -2164,10 +2210,6 @@ export default function App() {
                     <h2>Workspace activity log</h2>
                     <p>A record of the actions behind the progress.</p>
                   </div>
-                  <span className="live-indicator">
-                    <span />
-                    RECENT
-                  </span>
                 </div>
                 <DataTable
                   data={state.audit}
@@ -2237,7 +2279,7 @@ export default function App() {
                   {
                     name: "FullCalendar",
                     label: "SCHEDULING",
-                    text: "Schedule appointments and review upcoming meetings with your executive.",
+                    text: "Schedule appointments and review upcoming meetings with your assistant.",
                     letter: "F",
                     color: "purple",
                     url: "https://fullcalendar.io/docs",
@@ -3003,7 +3045,7 @@ export default function App() {
                 },
                 {
                   title: "2. Find your person",
-                  text: "Pay the initial test payment for automatic matching, or switch to Virtual executive and accept a matching open request.",
+                  text: "Pay the initial test payment for automatic matching, or switch to Virtual assistant and accept a matching open request.",
                 },
                 {
                   title: "3. Keep the conversation going",
@@ -3084,7 +3126,7 @@ function Feedback({
       <span className="feedback-spark">
         <Sparkles size={33} />
       </span>
-      <h3>Review your executive’s service</h3>
+      <h3>Review your assistant’s service</h3>
       <p>
         Your project is ready. If you’re happy with the output, close the
         request and let your assistant know how they did.

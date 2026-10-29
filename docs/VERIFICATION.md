@@ -1,5 +1,14 @@
 # Prototype verification
 
+## Original-design cleanup — October 30, 2026
+
+- Restored the original purple rail, white sidebar, individual summary cards, document illustration, and separate sign-in account cards. Removed decorative card stripes, login orbits and avatar stacks, repeated slogans, a redundant activity label, and a nonfunctional company-switch chevron.
+- TypeScript/Vite build and all 20 domain/PostgreSQL tests pass.
+- Chromium review covered sign-in, overview, service requests, appointments, messages, billing, files, profile, integrations, and the request dialog at 320, 390, 768, 1024, and 1440 px. No document-level horizontal overflow or uncaught browser exceptions remained.
+- The complete client → assistant → admin journey passed at desktop and phone sizes: profile editing, sample file upload, appointment scheduling, request creation and acceptance, payment verification, messaging, simulated payment, output upload, delivery, feedback, admin logs, and logout. Checks used isolated browser contexts and preserved the user's demo data.
+- Computed text-color checks on the client sign-in and workspace screens found no failures against the applicable 4.5:1 or large-text 3:1 contrast thresholds. This is not a complete accessibility audit.
+- The prior rebrand remains preserved at commit `ce0326a` and in `backups/nexus-va-rebrand.zip`. The first-version ZIP and release tag remain unchanged. The application stays local; hosted Supabase and Resend remain unverified.
+
 ## Brand refresh — October 29–30, 2026
 
 - Production build and all 20 domain/PostgreSQL tests pass.
