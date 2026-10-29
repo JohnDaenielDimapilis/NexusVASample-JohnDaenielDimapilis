@@ -1,6 +1,12 @@
-# Nexus VA — Prototype 1
+# Nexus Virtual Executives — Prototype 1
 
 A local, working prototype for clients, virtual assistants, and administrators. The workspace follows the supplied [Nexus VA Figma reference](https://www.figma.com/design/ipg60TMOg3sqIVzvNRwpp3/Nexus-VA-%E2%80%94-Workspace-Redesign?node-id=0-1). [Canopy](https://www.getcanopy.com/) informed the connected service workflow. Payments are **always simulated**.
+
+## Brand refresh and original backup
+
+The current design uses the official Nexus wordmark from the supplied [Nexus Virtual Executives Instagram profile](https://www.instagram.com/nexusvirtualexecutives/), the existing purple palette, one navigation sidebar, clearer service language, and responsive layouts. See [DESIGN.md](DESIGN.md) for the visual specification and asset provenance. The public profile provides a 100 × 100 px logo thumbnail, but no original font files or verifiable font-family name. UI text retains the existing Manrope and DM Sans fonts; the original logo lettering stays intact in the image.
+
+The first version is preserved at Git commit `529c303`, release tag `prototype-1`, and local tag `prototype-1-before-rebrand`. Before any design changes, a source ZIP was saved to `backups/nexus-va-prototype-1-original.zip` (ignored by Git). To run the original, extract that ZIP into a separate folder, install dependencies, and start it there. The ZIP contains the committed source and templates, without credentials or browser-local documents. The original [Prototype 1 release](https://github.com/Seperoth/nexus-va-prototype-1/releases/tag/prototype-1) remains unchanged.
 
 ## Run locally
 
@@ -20,7 +26,7 @@ Without Supabase environment variables, the sign-in screen offers three clearly 
 | Workspace         | Account      | What to try                                                                                                                     |
 | ----------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------- |
 | Client            | Alex Morgan  | Request work, book appointments, send messages, upload documents, make test payments, approve delivery, and leave a star rating |
-| Virtual assistant | Maya Bennett | Accept matching requests, chat, request and verify payment, upload work, and deliver output                                     |
+| Virtual executive | Maya Bennett | Accept matching requests, chat, request and verify payment, upload work, and deliver output                                     |
 | Admin             | Jordan Lee   | Review all tickets, assign staff, inspect payment/delivery combinations, and read activity logs                                 |
 
 Use **Account menu → Switch demo account** to follow a service through all roles. Sign out returns to the demo sign-in screen. These are browser-local demo sessions, not real authenticated accounts. Demo data is shared between tabs on this browser and origin; files are stored in IndexedDB. Clearing site data resets the demo and removes uploaded files. Use sample documents only.
@@ -32,7 +38,7 @@ Use **Account menu → Switch demo account** to follow a service through all rol
 3. Select **New request**. Enter a service category, a detailed description, a positive USD budget, Easy/Medium/Hard difficulty, and a due date.
 4. Choose either assignment path:
    - **Automatic:** Pay the initial budget request in **Billing**. An available assistant who enabled automatic assignment and has the matching service and difficulty level is selected, preferring the lightest active workload.
-   - **Manual:** Switch to **Virtual assistant**, open the available request, and select **Accept request**. The assistant must be available and have matching skills and difficulty level. Pay the initial request as the client before delivery.
+   - **Manual:** Switch to **Virtual executive**, open the available request, and select **Accept request**. The assistant must be available and have matching skills and difficulty level. Pay the initial request as the client before delivery.
 5. Open **Messages**. Both parties can send messages and share files. After the initial request is paid, the assistant can request an additional payment for negotiated scope, and optionally mark that request Verified. Only one outstanding payment is allowed per ticket.
 6. As the client, choose **Pay in test mode → Confirm test payment**. Pending or Verified requests can be paid. The record becomes Paid, a confirmation notification appears, and no real money moves.
 7. As the assigned assistant, open **Project details**, upload an output file (or choose **Try sample output** for a built-in test document), and select **Deliver output**. All payment requests must be Paid and at least one output must be uploaded.
@@ -98,4 +104,4 @@ npm audit
 
 Tests cover the demo state transitions and run the unmodified Supabase migration in embedded PostgreSQL (PGlite), with minimal mock Supabase-owned Auth and Storage schemas. They verify RLS, unauthorized mutations, signup privilege isolation, automatic assignment, payment guards, document visibility, delivery, feedback, audit access, and scheduling conflicts. They do not replace live verification of Supabase Auth emails, Storage service upload behavior, the deployed Resend webhook, or internet hosting.
 
-The initial build is intentionally local. Deployment, a public GitHub remote, production payment processing, password reset UI, antivirus scanning, and email deliverability setup are outside Prototype 1.
+The application remains local. Source code is published at [nexus-va-prototype-1](https://github.com/Seperoth/nexus-va-prototype-1). Deployment, production payment processing, password reset UI, antivirus scanning, and email deliverability setup are outside Prototype 1.

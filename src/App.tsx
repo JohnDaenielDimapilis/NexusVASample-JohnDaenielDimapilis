@@ -13,7 +13,6 @@ import {
   CircleCheck,
   CircleHelp,
   Clock3,
-  Command as CommandIcon,
   CreditCard,
   Download,
   ExternalLink,
@@ -45,6 +44,8 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import type { ColumnDef } from "@tanstack/react-table";
 import Auth from "./Auth";
+import Brand from "./BrandLogo";
+import { brand, companyName } from "./brand-config";
 import sampleOutput from "../docs/sample-output.txt?raw";
 import {
   Avatar,
@@ -367,7 +368,7 @@ export default function App() {
   if (loading)
     return (
       <div className="loading-screen">
-        <CommandIcon size={34} />
+        <Brand compact />
         <span className="spinner" />
         Opening your workspace…
       </div>
@@ -394,7 +395,7 @@ export default function App() {
   if (!state || !actor)
     return (
       <div className="loading-screen">
-        <CommandIcon size={34} />
+        <Brand compact />
         {loadError ? (
           <>
             <p>{loadError}</p>
@@ -462,7 +463,7 @@ export default function App() {
     },
     {
       accessorKey: "assigneeId",
-      header: "Assistant",
+      header: "Executive",
       cell: ({ row }) => {
         const p = person(row.original.assigneeId);
         return p ? (
@@ -604,60 +605,13 @@ export default function App() {
 
   return (
     <div className={`app-shell ${mobile ? "nav-open" : ""}`}>
-      <aside className="rail">
-        <a
-          className="rail-brand"
-          href="#"
-          aria-label="Nexus VA home"
-          onClick={(e) => {
-            e.preventDefault();
-            navigate("Overview");
-          }}
-        >
-          <CommandIcon size={23} />
-        </a>
-        <div className="rail-divider" />
-        {nav.map(({ page: next, icon: Icon }) => (
-          <button
-            key={next}
-            className={`rail-link ${page === next ? "selected" : ""}`}
-            aria-label={next}
-            title={next}
-            onClick={() => navigate(next)}
-          >
-            <Icon size={20} />
-          </button>
-        ))}
-        {actor.role === "admin" && (
-          <button
-            className={`rail-link ${page === "Activity logs" ? "selected" : ""}`}
-            title="Activity logs"
-            aria-label="Activity logs"
-            onClick={() => navigate("Activity logs")}
-          >
-            <ShieldCheck size={20} />
-          </button>
-        )}
-        <div className="rail-bottom">
-          <button
-            className="rail-link"
-            aria-label="Help"
-            onClick={() => setDialog({ type: "help" })}
-          >
-            <CircleHelp size={20} />
-          </button>
-          <button
-            className="rail-avatar"
-            title="Your profile"
-            onClick={() => navigate("Profile")}
-          >
-            <Avatar name={actor.name} color={2} />
-          </button>
-        </div>
-      </aside>
-      <aside className="sidebar">
+      <aside
+        className="sidebar"
+        id="workspace-navigation"
+        aria-label="Workspace navigation"
+      >
         <div className="sidebar-brand">
-          Nexus VA<span>®</span>
+          <Brand />
           <button
             className="icon-button mobile-close"
             aria-label="Close navigation"
@@ -671,12 +625,12 @@ export default function App() {
             {actor.company.charAt(0) || "N"}
           </span>
           <span>
-            <strong>{actor.company || "My workspace"}</strong>
+            <strong>{companyName(actor.company) || "My workspace"}</strong>
             <small>
               {actor.role === "client"
                 ? "Client workspace"
                 : actor.role === "staff"
-                  ? "Assistant workspace"
+                  ? "Executive workspace"
                   : "Admin workspace"}
             </small>
           </span>
@@ -723,13 +677,10 @@ export default function App() {
         </button>
         <div className="sidebar-bottom">
           <div className="support-card">
-            <span className="support-spark">
-              <Sparkles size={18} />
-            </span>
-            <strong>A little help goes a long way.</strong>
-            <p>We’re here when you need us.</p>
+            <strong>Workspace guide</strong>
+            <p>From your first request to final delivery.</p>
             <button onClick={() => setDialog({ type: "help" })}>
-              Explore the guide
+              View the guide
               <ArrowUpRight size={13} />
             </button>
           </div>
@@ -742,7 +693,8 @@ export default function App() {
           </button>
           <div className="sidebar-foot">
             <span className="online-dot" />
-            All systems connected<span>v0.1</span>
+            {mode === "demo" ? "Local demo workspace" : "Supabase connected"}
+            <span>v0.1</span>
           </div>
         </div>
       </aside>
@@ -755,6 +707,8 @@ export default function App() {
             <button
               className="icon-button mobile-menu"
               aria-label="Open navigation"
+              aria-controls="workspace-navigation"
+              aria-expanded={mobile}
               onClick={() => setMobile(true)}
             >
               <Menu size={20} />
@@ -852,7 +806,7 @@ export default function App() {
                     <small>{actor.email}</small>
                     <Badge>
                       {actor.role === "staff"
-                        ? "Virtual assistant"
+                        ? "Virtual executive"
                         : actor.role}
                     </Badge>
                   </div>
@@ -868,6 +822,7 @@ export default function App() {
                           key={role}
                           onClick={() => {
                             setState(null);
+                            setToast(null);
                             setIdentity(enterDemo(role));
                             navigate("Overview");
                           }}
@@ -881,7 +836,7 @@ export default function App() {
                           )}
                           <span>
                             {role === "staff"
-                              ? "Virtual assistant"
+                              ? "Virtual executive"
                               : role === "admin"
                                 ? "Admin"
                                 : "Client"}
@@ -912,27 +867,26 @@ export default function App() {
           {page === "Overview" && (
             <>
               <SectionHead
-                eyebrow={`${actor.role === "client" ? "A LITTLE SUPPORT. A LOT OF PROGRESS." : actor.role === "staff" ? "GOOD WORK STARTS HERE." : "THE BIGGER PICTURE, ALL TOGETHER."}`}
                 title={
                   actor.role === "client"
-                    ? `Good ${new Date().getHours() < 12 ? "morning" : new Date().getHours() < 18 ? "afternoon" : "evening"}, ${actor.name.split(" ")[0]} ☀`
+                    ? `Welcome back, ${actor.name.split(" ")[0]}.`
                     : actor.role === "staff"
-                      ? `Hello, ${actor.name.split(" ")[0]}. Let’s make things happen.`
-                      : "Your workspace at a glance."
+                      ? `Your assignments, ${actor.name.split(" ")[0]}.`
+                      : "Operations overview."
                 }
                 description={
                   actor.role === "client"
-                    ? "More headspace for you. We’ll take care of the moving parts."
+                    ? "Track your requests, review deliveries, and connect with your executive."
                     : actor.role === "staff"
-                      ? "Your projects, your people, and your next opportunity."
-                      : "A clear view of your people, projects, and performance."
+                      ? "Manage your current assignments and find work that matches your skills."
+                      : "Monitor service delivery, payment status, and team assignments."
                 }
-                action={requestButton}
+                action={actor.role !== "staff" ? requestButton : undefined}
               />
               <div className="dashboard-context">
                 <span>
                   <span className="online-dot" />
-                  Your workspace is up to date
+                  Workspace overview
                 </span>
                 <span>
                   <CalendarDays size={13} />
@@ -945,16 +899,12 @@ export default function App() {
                 </span>
               </div>
               <div className="spotlight">
-                <div className="spotlight-art">
-                  <div className="art-sheet sheet-back" />
-                  <div className="art-sheet sheet-front">
-                    <div className="art-lines" />
-                    <span>
-                      <Check size={18} />
-                    </span>
-                  </div>
-                  <span className="art-spark spark-one">✦</span>
-                  <span className="art-spark spark-two">✧</span>
+                <div className="spotlight-icon" aria-hidden="true">
+                  {actor.role === "client" && review.length ? (
+                    <FileCheck2 size={27} />
+                  ) : (
+                    <BriefcaseBusiness size={27} />
+                  )}
                 </div>
                 <div className="spotlight-copy">
                   <span className="spotlight-label">
@@ -962,24 +912,26 @@ export default function App() {
                     {actor.role === "client" && review.length
                       ? "READY FOR YOUR REVIEW"
                       : actor.role === "staff"
-                        ? "A LITTLE MOMENTUM GOES A LONG WAY"
-                        : "YOUR PEOPLE. YOUR PROGRESS."}
+                        ? "OPEN SERVICE REQUESTS"
+                        : "SERVICE OPERATIONS"}
                   </span>
                   <h2>
                     {actor.role === "client" && review.length
                       ? review[0].title
                       : actor.role === "staff"
-                        ? "Your next great project is waiting."
+                        ? "Find your next assignment."
                         : actor.role === "admin"
-                          ? "Good work happens when everything connects."
-                          : "Your next big idea starts here."}
+                          ? "Review the service queue."
+                          : "What can your executive help with?"}
                   </h2>
                   <p>
                     {actor.role === "client" && review.length
-                      ? `${person(review[0].assigneeId)?.name.split(" ")[0]} has wrapped things up. Take a look and add your finishing touch.`
+                      ? `${person(review[0].assigneeId)?.name.split(" ")[0]} has delivered the files. Review the output and approve when you’re satisfied.`
                       : actor.role === "staff"
                         ? "Explore open requests and find work that fits your skills."
-                        : "A shared workspace for every step, from the first hello to the final delivery."}
+                        : actor.role === "admin"
+                          ? "Check assignments, payment status, and deliveries across the team."
+                          : "Create a request with a clear brief, budget, and deadline."}
                   </p>
                 </div>
                 <button
@@ -1006,15 +958,17 @@ export default function App() {
                     value: active.length,
                     icon: BriefcaseBusiness,
                     note: active.length
-                      ? "Good things in motion"
-                      : "Room for something new",
+                      ? "Services in progress"
+                      : "No work in progress",
                     color: "purple",
                   },
                   {
                     label:
                       actor.role === "admin"
                         ? "AWAITING DELIVERY"
-                        : "WAITING ON YOU",
+                        : actor.role === "staff"
+                          ? "AWAITING CLIENT REVIEW"
+                          : "WAITING ON YOU",
                     value:
                       actor.role === "admin"
                         ? mine.filter(
@@ -1025,7 +979,7 @@ export default function App() {
                         : review.length,
                     icon: Clock3,
                     note: review.length
-                      ? "Ready for a fresh pair of eyes"
+                      ? "Deliveries awaiting review"
                       : "You’re all caught up",
                     color: "peach",
                   },
@@ -1056,10 +1010,10 @@ export default function App() {
                     icon: actor.role === "admin" ? CircleCheck : CalendarDays,
                     note:
                       actor.role === "admin"
-                        ? "From request to a job well done"
+                        ? "Approved by clients"
                         : upcoming[0]
-                          ? `${timeText(upcoming[0].start)} · ${person(upcoming[0].staffId)?.name.split(" ")[0]}`
-                          : "Make time to connect",
+                          ? `${timeText(upcoming[0].start)} · ${person(actor.role === "staff" ? upcoming[0].clientId : upcoming[0].staffId)?.name.split(" ")[0]}`
+                          : "No appointments scheduled",
                     color: "gold",
                   },
                 ].map((item) => (
@@ -1083,7 +1037,7 @@ export default function App() {
                           : "Project activity"}
                         <span className="count-pill">{mine.length}</span>
                       </h2>
-                      <p>A little progress, every day.</p>
+                      <p>Recent requests and delivery status.</p>
                     </div>
                     <button
                       className="text-button"
@@ -1102,11 +1056,10 @@ export default function App() {
                     <span>
                       <span className="online-dot" />
                       {completed.length} project
-                      {completed.length !== 1 ? "s" : ""} completed. Look at you
-                      go.
+                      {completed.length !== 1 ? "s" : ""} completed.
                     </span>
                     <span>
-                      Keep it moving
+                      View your service queue
                       <TrendingUp size={14} />
                     </span>
                   </div>
@@ -1116,10 +1069,10 @@ export default function App() {
                     <div>
                       <h2>
                         {actor.role === "client"
-                          ? "Your support crew"
-                          : "The people behind the progress"}
+                          ? "Your virtual executives"
+                          : "Executive team"}
                       </h2>
-                      <p>Real people. In your corner.</p>
+                      <p>Availability and assigned support.</p>
                     </div>
                     <Users size={18} />
                   </div>
@@ -1151,21 +1104,22 @@ export default function App() {
                   <div className="team-note">
                     <Sparkles size={16} />
                     <p>
-                      Great things happen with the right people by your side.
+                      Keep project discussions in the ticket conversation so the
+                      team has the full context.
                     </p>
                   </div>
                   <button
                     className="team-link"
                     onClick={() => navigate("Messages")}
                   >
-                    Say hello to your team
+                    Open conversations
                     <ArrowRight size={15} />
                   </button>
                 </section>
                 <section className="panel appointments-panel">
                   <div className="panel-head">
                     <div>
-                      <h2>A moment to connect</h2>
+                      <h2>Upcoming appointments</h2>
                       <p>Your upcoming appointments.</p>
                     </div>
                     <button
@@ -1181,7 +1135,7 @@ export default function App() {
                   ) : (
                     <Empty
                       icon={<CalendarDays size={24} />}
-                      title="A little room in your calendar"
+                      title="No upcoming appointments"
                       text="Book a call to connect with your assistant."
                     />
                   )}
@@ -1189,23 +1143,21 @@ export default function App() {
                 <section className="panel activity-panel">
                   <div className="panel-head">
                     <div>
-                      <h2>The latest little things</h2>
-                      <p>What’s been happening in your workspace.</p>
+                      <h2>Recent activity</h2>
+                      <p>Messages, payments, and delivery updates.</p>
                     </div>
                     <span className="live-indicator">
                       <span />
-                      LIVE
+                      RECENT
                     </span>
                   </div>
                   <div className="activity-list">
                     {(actor.role === "admin"
-                      ? state.audit
-                          .slice(0, 3)
-                          .map((a) => ({
-                            id: a.id,
-                            text: `${person(a.actorId)?.name.split(" ")[0]} · ${a.text}`,
-                            createdAt: a.createdAt,
-                          }))
+                      ? state.audit.slice(0, 3).map((a) => ({
+                          id: a.id,
+                          text: `${person(a.actorId)?.name.split(" ")[0]} · ${a.text}`,
+                          createdAt: a.createdAt,
+                        }))
                       : myNotes.slice(0, 3)
                     ).map((n, i) => (
                       <div className="activity-item" key={n.id}>
@@ -1228,18 +1180,18 @@ export default function App() {
                     ))}
                     {!myNotes.length && actor.role !== "admin" && (
                       <p className="muted">
-                        Your next update will appear here.
+                        Updates will appear as your projects progress.
                       </p>
                     )}
                   </div>
                 </section>
               </div>
               <div className="workspace-footer">
+                <span>{brand.name}</span>
                 <span>
-                  <CommandIcon size={13} /> A little more organized. A lot more
-                  you.
+                  Prototype 1 ·{" "}
+                  {mode === "demo" ? "Demo data" : "Connected workspace"}
                 </span>
-                <span>NEXUS VA WORKSPACE</span>
               </div>
             </>
           )}
@@ -1247,13 +1199,8 @@ export default function App() {
           {page === "Job services" && (
             <>
               <SectionHead
-                eyebrow="FROM TO-DO TO ALL DONE"
-                title={
-                  actor.role === "staff"
-                    ? "Find your next good thing."
-                    : "Your ideas. In good hands."
-                }
-                description="Every request, every detail, and every little bit of progress."
+                title="Service requests"
+                description="Manage the brief, budget, assignment, and status of each service."
                 action={requestButton}
               />
               <div className="page-tabs">
@@ -1318,8 +1265,7 @@ export default function App() {
           {page === "Appointments" && (
             <>
               <SectionHead
-                eyebrow="MAKE TIME FOR THE GOOD STUFF"
-                title="A little time to connect."
+                title="Appointments"
                 description={`Your appointments, all in one place. Times shown in ${Intl.DateTimeFormat().resolvedOptions().timeZone}.`}
                 action={
                   actor.role === "client" && (
@@ -1371,7 +1317,7 @@ export default function App() {
                   <div className="panel-head">
                     <div>
                       <h2>Coming up next</h2>
-                      <p>A good conversation goes a long way.</p>
+                      <p>Scheduled conversations with your team.</p>
                     </div>
                     <Video size={18} />
                   </div>
@@ -1399,8 +1345,7 @@ export default function App() {
           {page === "Messages" && (
             <>
               <SectionHead
-                eyebrow="KEEP THE CONVERSATION GOING"
-                title="Good work starts with hello."
+                title="Project conversations"
                 description="One shared conversation for every project."
               />
               <section className="panel messages-layout">
@@ -1601,7 +1546,7 @@ export default function App() {
                         <textarea
                           name="message"
                           aria-label="Your message"
-                          placeholder="A question, an idea, a little update…"
+                          placeholder="Write a message about this request…"
                           required
                           maxLength={5000}
                           rows={2}
@@ -1643,8 +1588,7 @@ export default function App() {
           {page === "Billing" && (
             <>
               <SectionHead
-                eyebrow="A CLEAR VIEW OF THE NUMBERS"
-                title="The little details, accounted for."
+                title="Billing & payments"
                 description="Payment requests, confirmations, and history in one place."
               />
               <div className="billing-demo-banner">
@@ -1799,8 +1743,7 @@ export default function App() {
           {page === "Files & documents" && (
             <>
               <SectionHead
-                eyebrow="EVERYTHING HAS ITS PLACE"
-                title="A home for the details."
+                title="Files & documents"
                 description="Your documents, shared resources, and finished work. All together."
                 action={fileUpload()}
               />
@@ -1940,17 +1883,16 @@ export default function App() {
           {page === "Profile" && (
             <>
               <SectionHead
-                eyebrow="A LITTLE MORE YOU"
-                title="Make yourself at home."
+                title="Your profile"
                 description="Your profile, account details, and work preferences."
               />
               <div className="profile-layout">
                 <aside className="panel profile-card">
                   <Avatar name={actor.name} size="large" color={2} />
                   <h2>{actor.name}</h2>
-                  <p>{actor.company}</p>
+                  <p>{companyName(actor.company)}</p>
                   <Badge>
-                    {actor.role === "staff" ? "Virtual assistant" : actor.role}
+                    {actor.role === "staff" ? "Virtual executive" : actor.role}
                   </Badge>
                   <div className="profile-status">
                     <span className="online-dot" />
@@ -1987,8 +1929,10 @@ export default function App() {
                 <section className="panel profile-form">
                   <div className="panel-head">
                     <div>
-                      <h2>The person behind the projects</h2>
-                      <p>Let your team get to know you.</p>
+                      <h2>Profile information</h2>
+                      <p>
+                        Keep your contact and workspace information current.
+                      </p>
                     </div>
                   </div>
                   <Form
@@ -2027,7 +1971,7 @@ export default function App() {
                         <input name="company" defaultValue={actor.company} />
                       </Field>
                     </div>
-                    <Field label="A little about you">
+                    <Field label="About you">
                       <textarea
                         name="bio"
                         defaultValue={actor.bio}
@@ -2101,7 +2045,7 @@ export default function App() {
                     )}
                     <div className="form-actions">
                       <span className="muted">
-                        A little update goes a long way.
+                        Changes apply to your workspace profile.
                       </span>
                       <Submit busy={busy}>
                         Save changes
@@ -2117,8 +2061,7 @@ export default function App() {
           {page === "Activity logs" && actor.role === "admin" && (
             <>
               <SectionHead
-                eyebrow="EVERY DETAIL IN VIEW"
-                title="A clear view of every request."
+                title="Operations & activity"
                 description="Track payments and output delivery across your entire workspace."
               />
               <div className="stats-grid">
@@ -2223,7 +2166,7 @@ export default function App() {
                   </div>
                   <span className="live-indicator">
                     <span />
-                    LIVE
+                    RECENT
                   </span>
                 </div>
                 <DataTable
@@ -2274,8 +2217,7 @@ export default function App() {
           {page === "Tools & software" && (
             <>
               <SectionHead
-                eyebrow="A FEW GOOD TOOLS"
-                title="Built to work beautifully together."
+                title="Tools & integrations"
                 description="The tools behind your workspace. Simple, connected, and ready to grow."
               />
               <div className="tools-grid">
@@ -2295,7 +2237,7 @@ export default function App() {
                   {
                     name: "FullCalendar",
                     label: "SCHEDULING",
-                    text: "An interactive calendar for catch-ups, appointments, and a little time to connect.",
+                    text: "Schedule appointments and review upcoming meetings with your executive.",
                     letter: "F",
                     color: "purple",
                     url: "https://fullcalendar.io/docs",
@@ -2322,11 +2264,11 @@ export default function App() {
                   {
                     name: "Git + GitHub",
                     label: "SOURCE CONTROL",
-                    text: "Version control for the prototype, ready to connect to your GitHub repository.",
+                    text: "Prototype 1 source code and its preserved release are available in the public repository.",
                     letter: "G",
                     color: "purple",
-                    url: "https://docs.github.com/",
-                    status: "Local Git repository",
+                    url: "https://github.com/Seperoth/nexus-va-prototype-1",
+                    status: "Prototype 1 repository",
                   },
                   {
                     name: "Railway",
@@ -2370,24 +2312,24 @@ export default function App() {
         <Modal
           title={
             dialog.type === "request"
-              ? "What can we take off your plate?"
+              ? "Create a service request"
               : dialog.type === "appointment"
-                ? "Make a little time to connect."
+                ? "Schedule an appointment"
                 : dialog.type === "payment"
-                  ? "Let’s get the details in order."
+                  ? "Create a payment request"
                   : dialog.type === "pay"
-                    ? "One little step. A lot of progress."
+                    ? "Confirm test payment"
                     : dialog.type === "feedback"
                       ? "How did we do?"
                       : dialog.type === "help"
-                        ? "A little guidance goes a long way."
+                        ? "Workspace guide"
                         : dialog.type === "cancel"
-                          ? "Your time to connect."
-                          : "Every detail, in one place."
+                          ? "Appointment details"
+                          : "Request details"
           }
           subtitle={
             dialog.type === "request"
-              ? "Tell us what you have in mind. We’ll help you make it happen."
+              ? "Define the work, budget, difficulty, and delivery date."
               : undefined
           }
           close={closeDialog}
@@ -2435,7 +2377,7 @@ export default function App() {
               >
                 <textarea
                   name="description"
-                  placeholder="A little context goes a long way…"
+                  placeholder="Describe the expected output, requirements, and reference material."
                   rows={4}
                   required
                   minLength={15}
@@ -2510,7 +2452,7 @@ export default function App() {
                   type="button"
                   onClick={closeDialog}
                 >
-                  Keep thinking
+                  Cancel
                 </button>
                 <Submit busy={busy}>
                   Create request
@@ -2696,7 +2638,7 @@ export default function App() {
                       ))
                     ) : (
                       <p className="muted">
-                        A place for the details, and the great work to come.
+                        No files have been attached to this request yet.
                       </p>
                     )}
                   </div>
@@ -2785,7 +2727,7 @@ export default function App() {
                     end: end.toISOString(),
                     notes: str(form, "notes"),
                   },
-                  "Appointment scheduled. A little time, well spent.",
+                  "Appointment scheduled.",
                 );
               }}
             >
@@ -2844,7 +2786,7 @@ export default function App() {
                 <textarea
                   name="notes"
                   rows={3}
-                  placeholder="Add a little context for your assistant…"
+                  placeholder="Add an agenda or preparation notes…"
                   maxLength={2000}
                 />
               </Field>
@@ -2861,7 +2803,7 @@ export default function App() {
                   type="button"
                   onClick={closeDialog}
                 >
-                  Maybe later
+                  Cancel
                 </button>
                 <Submit busy={busy}>
                   Schedule appointment
@@ -2985,7 +2927,7 @@ export default function App() {
                   <span className="checkout-icon">
                     <ShieldCheck size={30} />
                   </span>
-                  <span className="eyebrow">A SAFE SPACE TO TRY THINGS</span>
+                  <span className="eyebrow">SIMULATED PAYMENT</span>
                   <h2>{money(p.amount)}</h2>
                   <p>{p.description}</p>
                   <div className="checkout-summary">
@@ -3056,12 +2998,12 @@ export default function App() {
               </div>
               {[
                 {
-                  title: "1. Start with a little idea",
+                  title: "1. Create your request",
                   text: "In the Client workspace, create a request with a service, budget, difficulty, and due date.",
                 },
                 {
                   title: "2. Find your person",
-                  text: "Pay the initial test payment for automatic matching, or switch to Virtual assistant and accept a matching open request.",
+                  text: "Pay the initial test payment for automatic matching, or switch to Virtual executive and accept a matching open request.",
                 },
                 {
                   title: "3. Keep the conversation going",
@@ -3076,7 +3018,7 @@ export default function App() {
                   text: "The assistant uploads an output in the project details and selects Deliver output after all payments are paid.",
                 },
                 {
-                  title: "6. Give a little appreciation",
+                  title: "6. Review and leave feedback",
                   text: "The client downloads the work, approves delivery, and leaves a star rating. Admin sees the entire journey in Activity logs.",
                 },
               ].map((g) => (
@@ -3142,7 +3084,7 @@ function Feedback({
       <span className="feedback-spark">
         <Sparkles size={33} />
       </span>
-      <h3>A little appreciation means a lot.</h3>
+      <h3>Review your executive’s service</h3>
       <p>
         Your project is ready. If you’re happy with the output, close the
         request and let your assistant know how they did.
@@ -3178,7 +3120,7 @@ function Feedback({
           ][rating]
         }
       </small>
-      <Field label="Leave a little note (optional)">
+      <Field label="Written feedback (optional)">
         <textarea
           name="feedback"
           rows={3}

@@ -1,6 +1,17 @@
 # Prototype verification
 
-Verified locally on October 28, 2026.
+## Brand refresh — October 29–30, 2026
+
+- Production build and all 20 domain/PostgreSQL tests pass.
+- Chromium browser review covered sign-in, overview, service requests, appointments, messages, billing, documents, profile, integrations, and the request dialog at widths of 320, 390, 768, 1024, and 1440 px. No document-level horizontal overflow or browser exceptions remained. Tables scroll within their own containers.
+- Complete journeys passed at desktop and phone sizes: profile update, sample document upload, appointment, service request, executive acceptance, payment verification, chat, simulated client payment, sample output upload, delivery, five-star feedback, admin logs, and logout. These ran in isolated browser contexts without changing the user's demo data.
+- Computed text-color contrast checks across the client sign-in and workspace pages found no failures against the applicable 4.5:1 or large-text 3:1 thresholds. This check is not a complete accessibility audit.
+- The original source archive was created before edits, and both preservation tags resolve to `529c303484acb3eecd2056dae527503916a8c3f9`. ZIP SHA-256: `18e9e9984eb00cca6378becc5849cb11e2f4fe5dfdcbe7e4b93aa31569c2cd92`.
+- The local launcher recognizes the new document title. Hosted Supabase and Resend services remain unconfigured and unverified. This refresh is local; the original GitHub release remains unchanged.
+
+## Original prototype — October 28, 2026
+
+The following notes record verification of the first version before its GitHub publication and this brand refresh.
 
 ## Automated checks
 

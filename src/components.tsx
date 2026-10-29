@@ -75,17 +75,14 @@ export function SectionHead({
   title,
   description,
   action,
-  eyebrow,
 }: {
   title: string;
   description?: string;
   action?: ReactNode;
-  eyebrow?: string;
 }) {
   return (
     <div className="section-head">
       <div>
-        {eyebrow && <span className="eyebrow">{eyebrow}</span>}
         <h1>{title}</h1>
         {description && <p>{description}</p>}
       </div>
@@ -156,7 +153,6 @@ export function Modal({
       >
         <header className="modal-head">
           <div>
-            <span className="eyebrow">NEXUS VA WORKSPACE</span>
             <h2>{title}</h2>
             {subtitle && <p>{subtitle}</p>}
           </div>

@@ -5,10 +5,10 @@ $taskListener = Get-NetTCPConnection -LocalPort 5173 -State Listen -ErrorAction 
 
 if ($taskListener) {
     $taskExistingResponse = Invoke-WebRequest -Uri $taskUrl -UseBasicParsing -TimeoutSec 5
-    if (-not $taskExistingResponse.Content.Contains('Nexus VA')) {
+    if (-not ($taskExistingResponse.Content.Contains('Nexus Virtual Executives') -or $taskExistingResponse.Content.Contains('Nexus VA'))) {
         throw 'Port 5173 is already used by another application.'
     }
-    Write-Output "Nexus VA is already running: $taskUrl"
+    Write-Output "Nexus Virtual Executives is already running: $taskUrl"
     exit 0
 }
 
@@ -40,8 +40,8 @@ for ($taskAttempt = 0; $taskAttempt -lt 20; $taskAttempt++) {
     }
     try {
         $taskResponse = Invoke-WebRequest -Uri $taskUrl -UseBasicParsing -TimeoutSec 1
-        if ($taskResponse.StatusCode -eq 200 -and $taskResponse.Content.Contains('Nexus VA')) {
-            Write-Output "Nexus VA is running in the background: $taskUrl"
+        if ($taskResponse.StatusCode -eq 200 -and $taskResponse.Content.Contains('Nexus Virtual Executives')) {
+            Write-Output "Nexus Virtual Executives is running in the background: $taskUrl"
             exit 0
         }
     } catch {
