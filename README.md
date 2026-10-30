@@ -4,7 +4,7 @@ A local, working prototype for clients, virtual assistants, and administrators. 
 
 ## Original design and preserved versions
 
-The current design restores Prototype 1's narrow purple rail, white sidebar, separate summary cards, compact tables, and account-selection cards. The cleanup keeps the original purple palette and Manrope / DM Sans fonts while improving readability, simplifying decorative elements, and making demo status and task labels clearer. See [DESIGN.md](DESIGN.md) for the current design decisions.
+The current design restores Prototype 1's narrow purple rail, white sidebar, separate summary cards, compact tables, and account-selection cards. The cleanup keeps the original purple palette with Montserrat typography while improving readability, simplifying decorative elements, and making demo status and task labels clearer. See [DESIGN.md](DESIGN.md) for the current design decisions.
 
 The first version is preserved at Git commit `529c303`, release tag `prototype-1`, and local tag `prototype-1-before-rebrand`. Before any design changes, a source ZIP was saved to `backups/nexus-va-prototype-1-original.zip` (ignored by Git). To run the original, extract that ZIP into a separate folder, install dependencies, and start it there. The ZIP contains the committed source and templates, without credentials or browser-local documents. The original [Prototype 1 release](https://github.com/Seperoth/nexus-va-prototype-1/releases/tag/prototype-1) remains unchanged.
 
