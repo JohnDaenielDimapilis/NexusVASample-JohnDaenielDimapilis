@@ -31,5 +31,5 @@ Inspect sign-in, overview, requests, appointments, chat, billing, files, profile
 
 - Original Prototype 1: commit `529c303`, tag `prototype-1`, and `backups/nexus-va-prototype-1-original.zip`.
 - Previous rebrand: commit `ce0326a` and `backups/nexus-va-rebrand.zip`.
-- Current work: branch `codex/original-design-cleanup`.
+- Accepted design history: branch `codex/original-design-cleanup`; ongoing work uses `develop`, and tested releases use `main`.
 - ZIP archives contain source and configuration templates, without credentials or browser-local uploads.

@@ -1,15 +1,19 @@
 {
   "name": "nexus-va-workspace",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --host 127.0.0.1",
+    "dev": "vite --mode development --host 127.0.0.1",
     "start:local": "powershell.exe -NoProfile -File scripts/start-local.ps1",
-    "build": "tsc -b && vite build",
-    "preview": "vite preview --host 127.0.0.1",
+    "typecheck": "tsc -b",
+    "build": "npm run typecheck && vite build --mode production",
+    "build:dev": "npm run typecheck && vite build --mode development",
+    "preview": "vite preview --mode production --host 127.0.0.1 --port 4173 --strictPort",
+    "preview:dev": "vite preview --mode development --host 127.0.0.1 --port 4174 --strictPort",
     "test": "vitest run",
-    "format": "prettier --write src tests index.html vite.config.ts tsconfig.json package.json README.md supabase/functions/**/*.ts"
+    "check": "npm test && npm run build:dev",
+    "format": "prettier --write src tests config index.html vite.config.ts tsconfig.json package.json README.md CHANGELOG.md docs/WORKFLOW.md .github/**/*.yml .github/**/*.md supabase/functions/**/*.ts"
   },
   "engines": {
     "node": ">=22.18.0"

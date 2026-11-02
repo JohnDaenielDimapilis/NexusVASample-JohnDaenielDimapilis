@@ -44,6 +44,12 @@ import interactionPlugin from "@fullcalendar/interaction";
 import type { ColumnDef } from "@tanstack/react-table";
 import Auth from "./Auth";
 import { brand, companyName } from "./brand-config";
+import {
+  buildLabel,
+  environmentLabel,
+  environmentShortLabel,
+  versionLabel,
+} from "./app-config";
 import sampleOutput from "../docs/sample-output.txt?raw";
 import {
   Avatar,
@@ -739,10 +745,10 @@ export default function App() {
             <Settings2 size={17} />
             Settings & profile
           </button>
-          <div className="sidebar-foot">
+          <div className="sidebar-foot" title={buildLabel}>
             <span className="online-dot" />
-            {mode === "demo" ? "Local demo workspace" : "Supabase connected"}
-            <span>v0.1</span>
+            {environmentShortLabel} · {mode === "demo" ? "Demo" : "Connected"}
+            <span>{versionLabel}</span>
           </div>
         </div>
       </aside>
@@ -1234,8 +1240,8 @@ export default function App() {
               </div>
               <div className="workspace-footer">
                 <span>{brand.name}</span>
-                <span>
-                  Prototype 1 ·{" "}
+                <span title={buildLabel}>
+                  {versionLabel} · {environmentLabel} ·{" "}
                   {mode === "demo" ? "Demo data" : "Connected workspace"}
                 </span>
               </div>

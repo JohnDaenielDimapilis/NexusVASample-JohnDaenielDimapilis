@@ -45,6 +45,7 @@ try {
   log('START', `Process ${process.pid}; Node ${process.version}`);
   server = await createServer({
     root: projectDirectory,
+    mode: 'development',
     customLogger: logger,
     server: { host: '127.0.0.1', port: 5173, strictPort: true },
   });

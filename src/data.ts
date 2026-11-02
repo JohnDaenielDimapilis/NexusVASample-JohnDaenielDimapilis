@@ -3,11 +3,13 @@ import type { Session } from "@supabase/supabase-js";
 import type { Command, Document, Profile, Role, Workspace } from "./types";
 import { applyCommand, uid } from "./domain";
 import { createSeed, demoIds } from "./seed";
+import { appConfig } from "./app-config";
 
-const url = import.meta.env.VITE_SUPABASE_URL;
-const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
-export const supabase = url && key ? createClient(url, key) : null;
-export const mode = supabase ? "supabase" : "demo";
+export const mode = appConfig.dataMode;
+export const supabase =
+  mode === "supabase"
+    ? createClient(appConfig.supabaseUrl, appConfig.supabaseAnonKey)
+    : null;
 const DATA_KEY = "nexus-va-prototype-v1";
 const SESSION_KEY = "nexus-va-session-v1";
 export interface Identity {

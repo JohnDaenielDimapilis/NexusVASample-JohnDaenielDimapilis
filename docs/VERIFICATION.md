@@ -1,5 +1,14 @@
 # Prototype verification
 
+## Version control and environments — November 2, 2026
+
+- Version 0.2.0 keeps the accepted original design and Montserrat. Development remains on port 5173 with the original browser-storage keys and demo records.
+- All 38 tests pass: the existing 20 workflow/PostgreSQL tests and 18 environment checks. TypeScript and the development build pass.
+- Production without connection settings deliberately fails. A production compilation with public, nonfunctional test settings passes; its local browser preview shows real-account login, the Production label, and no demo-account buttons. This does not verify a live Supabase project.
+- Chromium checks confirm demo sign-in, version/environment status, and layout at 320 and 1440 px without uncaught page errors or horizontal overflow.
+- Real env files and local logs are ignored. Only blank/example connection templates are tracked. The first prototype tags and archive remain preserved.
+- GitHub checks run tests, types, and both build configurations, with no deployment job. Production Supabase, hosting, live email, and real payment processing have not been configured.
+
 ## Original-design cleanup — October 30, 2026
 
 - Restored the original purple rail, white sidebar, individual summary cards, document illustration, and separate sign-in account cards. Removed decorative card stripes, login orbits and avatar stacks, repeated slogans, a redundant activity label, and a nonfunctional company-switch chevron.

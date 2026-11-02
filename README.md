@@ -2,6 +2,8 @@
 
 A local, working prototype for clients, virtual assistants, and administrators. The workspace follows the supplied [Nexus VA Figma reference](https://www.figma.com/design/ipg60TMOg3sqIVzvNRwpp3/Nexus-VA-%E2%80%94-Workspace-Redesign?node-id=0-1). [Canopy](https://www.getcanopy.com/) informed the connected service workflow. Payments are **always simulated**.
 
+Current version: **0.2.0**. Daily work happens on **`develop`**; **`main`** holds tested releases. Read the [change log](CHANGELOG.md) for updates and the [short development/release guide](docs/WORKFLOW.md) for environment setup and release commands. The original Prototype 1 release remains preserved.
+
 ## Original design and preserved versions
 
 The current design restores Prototype 1's narrow purple rail, white sidebar, separate summary cards, compact tables, and account-selection cards. The cleanup keeps the original purple palette with Montserrat typography while improving readability, simplifying decorative elements, and making demo status and task labels clearer. See [DESIGN.md](DESIGN.md) for the current design decisions.
@@ -15,7 +17,7 @@ The previous Nexus Virtual Executives rebrand is also preserved at commit `ce032
 Requires Node.js 22.18+ and npm.
 
 ```powershell
-npm install
+npm ci
 npm run dev
 ```
 
@@ -55,14 +57,15 @@ The Supabase integration is implemented, but no project or credentials are provi
 
 1. Create or choose a free Supabase project.
 2. Run `supabase/migrations/202610270001_workspace.sql` **once in a new project** using the SQL editor, or use the Supabase CLI migration flow. The migration installs the schema, role types, signup trigger, row-level security, workflow RPC, appointment exclusion constraints, and private `documents` storage bucket.
-3. Copy `.env.example` to `.env.local` and fill in:
+3. Copy `.env.development.example` to `.env.development.local` and fill in:
 
    ```dotenv
-   VITE_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+   VITE_DATA_MODE=supabase
+   VITE_SUPABASE_URL=https://YOUR_DEVELOPMENT_PROJECT.supabase.co
    VITE_SUPABASE_ANON_KEY=YOUR_PUBLIC_ANON_OR_PUBLISHABLE_KEY
    ```
 
-   Only a public anon/publishable key belongs in the frontend. Never put a service-role key or Resend key in a `VITE_` variable. `.env.local` is ignored by Git.
+   Only a public anon/publishable key belongs in the frontend. Never put a service-role key or Resend key in a `VITE_` variable. Local env files are ignored by Git. Use `.env.production.example` for a separate production project; do not reuse the development database. Shared browser settings in `.env` or `.env.local` are rejected. See [environment setup](docs/WORKFLOW.md#development-and-production-settings).
 
 4. Restart `npm run dev`. The app uses Supabase email/password login and client signup, with session restoration and logout. Configure the local URL in Supabase Auth URL settings; keep email confirmation enabled as appropriate.
 5. Register the test accounts using the app or create them in Supabase Auth. New users always receive the **client** role regardless of supplied metadata.
@@ -99,11 +102,12 @@ In-app confirmation notifications work in both modes. Sending email requires con
 React + TypeScript + Vite, Lucide icons, FullCalendar (free plugins), TanStack Table, Supabase Auth/Postgres/Storage, and a Supabase Edge Function for Resend.
 
 ```powershell
-npm run build
-npm test
+npm run check
 npm audit
 ```
 
 Tests cover the demo state transitions and run the unmodified Supabase migration in embedded PostgreSQL (PGlite), with minimal mock Supabase-owned Auth and Storage schemas. They verify RLS, unauthorized mutations, signup privilege isolation, automatic assignment, payment guards, document visibility, delivery, feedback, audit access, and scheduling conflicts. They do not replace live verification of Supabase Auth emails, Storage service upload behavior, the deployed Resend webhook, or internet hosting.
+
+`npm run check` runs tests, TypeScript, and a development build. `npm run build` creates the production package in `dist/production` and requires production Supabase settings; `npm run build:dev` creates the demo/development package in `dist/development`. Environment tests also check production guards and configuration isolation. GitHub runs these checks automatically without deploying the app.
 
 The application remains local. Source code is published at [nexus-va-prototype-1](https://github.com/Seperoth/nexus-va-prototype-1). Deployment, production payment processing, password reset UI, antivirus scanning, and email deliverability setup are outside Prototype 1.

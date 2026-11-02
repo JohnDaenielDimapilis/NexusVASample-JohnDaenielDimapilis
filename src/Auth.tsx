@@ -4,6 +4,7 @@ import { Form, Field, Submit } from "./components";
 import { enterDemo, identityFromSession, supabase } from "./data";
 import type { Identity } from "./data";
 import type { Role } from "./types";
+import { buildLabel, environmentLabel, versionLabel } from "./app-config";
 
 export default function Auth({
   onLogin,
@@ -82,12 +83,12 @@ export default function Auth({
         </div>
         <footer>
           <span>Client · Assistant · Admin</span>
-          <span>Prototype 1</span>
+          <span title={buildLabel}>Prototype 1 · {versionLabel}</span>
         </footer>
       </div>
       <div className="auth-form-side">
-        <span className="prototype-label">
-          <span /> PROTOTYPE 01
+        <span className="prototype-label" title={buildLabel}>
+          <span /> {environmentLabel} · {versionLabel}
         </span>
         <div className="auth-form">
           <h2>{signup ? "Create your client account" : "Welcome to Nexus."}</h2>
