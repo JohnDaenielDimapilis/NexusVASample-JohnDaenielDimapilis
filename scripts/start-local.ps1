@@ -1,12 +1,12 @@
 $ErrorActionPreference = 'Stop'
 $taskProjectPath = Split-Path -Parent $PSScriptRoot
-$taskUrl = 'http://127.0.0.1:5173/'
-$taskListener = Get-NetTCPConnection -LocalPort 5173 -State Listen -ErrorAction SilentlyContinue
+$taskUrl = 'http://127.0.0.1:5189/'
+$taskListener = Get-NetTCPConnection -LocalPort 5189 -State Listen -ErrorAction SilentlyContinue
 
 if ($taskListener) {
     $taskExistingResponse = Invoke-WebRequest -Uri $taskUrl -UseBasicParsing -TimeoutSec 5
-    if (-not ($taskExistingResponse.Content.Contains('Nexus Virtual Executives') -or $taskExistingResponse.Content.Contains('Nexus VA'))) {
-        throw 'Port 5173 is already used by another application.'
+    if (-not $taskExistingResponse.Content.Contains('NexusVA Test Version 1.3.4.9')) {
+        throw 'Port 5189 is already used by another application.'
     }
     Write-Output "Nexus VA is already running: $taskUrl"
     exit 0
@@ -40,7 +40,7 @@ for ($taskAttempt = 0; $taskAttempt -lt 20; $taskAttempt++) {
     }
     try {
         $taskResponse = Invoke-WebRequest -Uri $taskUrl -UseBasicParsing -TimeoutSec 1
-        if ($taskResponse.StatusCode -eq 200 -and $taskResponse.Content.Contains('Nexus VA')) {
+        if ($taskResponse.StatusCode -eq 200 -and $taskResponse.Content.Contains('NexusVA Test Version 1.3.4.9')) {
             Write-Output "Nexus VA is running in the background: $taskUrl"
             exit 0
         }

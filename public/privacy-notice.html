@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en" data-design="neumorphism">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <title>Privacy and review notice — Nexus VA</title>
+    <script>
+      (() => {
+        let saved = null;
+        try {
+          saved = localStorage.getItem("nexusva.appearance");
+        } catch {}
+        const appearance = saved === "light" || saved === "dark"
+          ? saved
+          : matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        document.documentElement.dataset.appearance = appearance;
+        document.documentElement.style.colorScheme = appearance;
+      })();
+    </script>
+    <style>
+      @import url("/appearance-tokens.css");
+      body {
+        margin: 0;
+        background: var(--theme-page);
+        color: var(--theme-text);
+        font:
+          16px/1.6 Poppins,
+          Arial,
+          sans-serif;
+      }
+      header {
+        background: var(--theme-sidebar);
+        color: #fff;
+        padding: 16px max(20px, calc((100vw - 760px) / 2));
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+      }
+      header a {
+        color: #e5d2ff;
+      }
+      header button {
+        min-height: 40px;
+        padding: 0 12px;
+        border: 1px solid #b99ade;
+        border-radius: 8px;
+        background: transparent;
+        color: #fff;
+        font: inherit;
+        font-size: 13px;
+        white-space: nowrap;
+        cursor: pointer;
+      }
+      header button:focus-visible {
+        outline: 2px solid #fff;
+        outline-offset: 3px;
+      }
+      main {
+        max-width: 760px;
+        margin: auto;
+        padding: 24px 20px 64px;
+      }
+      h1 {
+        font-size: 2rem;
+        line-height: 1.2;
+      }
+      h2 {
+        font-size: 1.25rem;
+        margin-top: 32px;
+      }
+      a {
+        color: var(--theme-accent);
+      }
+      aside {
+        padding: 16px;
+        background: var(--theme-raised);
+        border-left: 4px solid var(--theme-chart-fill);
+      }
+      li {
+        margin: 8px 0;
+      }
+    </style>
+    <link rel="stylesheet" href="/neumorphism-v1344.css" />
+  </head>
+  <body class="neu-notice">
+    <header>
+      <a href="/">← Nexus VA workspace</a>
+      <button type="button" id="appearance-switch"></button>
+    </header>
+    <main>
+      <h1>Privacy and review notice</h1>
+      <aside>
+        <strong>Draft for organizational review.</strong> This local test
+        version demonstrates proposed controls. The designated Data Protection
+        Officer or qualified counsel must approve this notice, the lawful basis,
+        retention rules, and contact details before production use.
+      </aside>
+      <h2>Private conversations</h2>
+      <p>
+        Client and VA messages belong to the participants in an assigned
+        request. Admins do not receive routine message access. A documented
+        dispute, report, safety concern, or investigation can lead to a
+        Conversation Review case. The case records a purpose, reason, requester,
+        assigned reviewer, approved time range, independent approval, status,
+        and expiry. A reviewer can read only the approved range while
+        authorization is active. Attachment access requires separate
+        justification and a short-lived link. Reviewers cannot send or change
+        messages or read receipts through the review tool.
+      </p>
+      <h2>Calendars and schedule history</h2>
+      <p>
+        Clients and VAs use their own authorized calendars and shared
+        appointments. Admins do not receive live or upcoming client or VA
+        calendars. Schedule History allows an authorized case reviewer to see
+        eligible past appointments, past cancellations, past no-shows, and
+        previous slots from rescheduled appointments. A new future slot is not
+        included. A cancellation made before the original appointment date
+        remains hidden until that original period has passed.
+      </p>
+      <h2>Accountability</h2>
+      <p>
+        Administrative access decisions, reviews, approved and denied requests,
+        attachment access, permission changes, and emergency use are recorded in
+        a protected audit trail. Logs record actor, time, case, purpose or
+        justification, scope, and outcome. They are not intended to include
+        message contents. Emergency access is short lived and requires later
+        independent review.
+      </p>
+      <h2>Your questions and rights</h2>
+      <p>
+        Ask the organization's designated privacy contact about access,
+        correction, or a privacy concern through its established support
+        channel. The organization must add verified contact details and its
+        approved retention, lawful-basis, and rights-handling information before
+        publishing this notice.
+      </p>
+      <h2>Local demo limitation</h2>
+      <p>
+        Browser demo accounts and records are stored in this browser for
+        prototype testing. They do not provide server-side privacy protection.
+        Use sample data only. Connected mode requires the database migrations
+        and attachment-signing function described in the project documentation.
+      </p>
+    </main>
+    <script>
+      (() => {
+        const button = document.getElementById("appearance-switch");
+        const key = "nexusva.appearance";
+        const render = () => {
+          const dark = document.documentElement.dataset.appearance === "dark";
+          button.textContent = dark ? "☀ Light mode" : "☾ Dark mode";
+          button.setAttribute("aria-label", dark ? "Switch to light mode" : "Switch to dark mode");
+          button.setAttribute("aria-pressed", String(dark));
+        };
+        button.addEventListener("click", () => {
+          const next = document.documentElement.dataset.appearance === "dark" ? "light" : "dark";
+          document.documentElement.dataset.appearance = next;
+          document.documentElement.style.colorScheme = next;
+          try { localStorage.setItem(key, next); } catch {}
+          render();
+        });
+        render();
+        window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (event) => {
+          try { if (localStorage.getItem(key) === "light" || localStorage.getItem(key) === "dark") return; } catch {}
+          document.documentElement.dataset.appearance = event.matches ? "dark" : "light";
+          document.documentElement.style.colorScheme = event.matches ? "dark" : "light";
+          render();
+        });
+      })();
+    </script>
+  </body>
+</html>

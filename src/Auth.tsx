@@ -3,13 +3,18 @@ import { ArrowRight, ArrowUpRight, ShieldCheck } from "lucide-react";
 import { Form, Field, Submit } from "./components";
 import { enterDemo, identityFromSession, supabase } from "./data";
 import type { Identity } from "./data";
-import type { Role } from "./types";
 import { buildLabel, environmentLabel, versionLabel } from "./app-config";
+import { AppearanceSwitch } from "./AppearanceSwitch";
+import type { Appearance } from "./appearance";
 
 export default function Auth({
   onLogin,
+  appearance,
+  onToggleAppearance,
 }: {
   onLogin: (identity: Identity) => void;
+  appearance: Appearance;
+  onToggleAppearance: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -54,16 +59,23 @@ export default function Auth({
   };
   return (
     <main className="auth">
+      <AppearanceSwitch
+        appearance={appearance}
+        onToggle={onToggleAppearance}
+        className="auth-appearance-switch"
+      />
       <div className="auth-story">
-        <a className="brand" href="#">
-          <span className="brand-icon">
-            <span aria-hidden="true">N</span>
-          </span>
-          Nexus VA
+        <a
+          className="brand"
+          href="#"
+          aria-label="Nexus Virtual Executives home"
+        >
+          <img src="/nexus-wordmark-white.png" alt="Nexus" />
+          <span>VIRTUAL EXECUTIVES</span>
         </a>
         <div className="auth-copy">
           <h1>
-            Your projects.
+            Your requests.
             <br />
             Your people.
             <br />
@@ -83,7 +95,9 @@ export default function Auth({
         </div>
         <footer>
           <span>Client · Assistant · Admin</span>
-          <span title={buildLabel}>Prototype 1 · {versionLabel}</span>
+          <span title={buildLabel}>
+            NexusVA Test Version 1.3.4.9 · {versionLabel}
+          </span>
         </footer>
       </div>
       <div className="auth-form-side">
@@ -95,7 +109,7 @@ export default function Auth({
           <p>
             {supabase
               ? "Sign in to pick up where you left off."
-              : "Choose a demo account to explore service requests, conversations, and deliveries."}
+              : "Choose a demo account to explore requests, conversations, and deliveries."}
           </p>
           {supabase ? (
             <Form onSubmit={login}>
@@ -179,7 +193,7 @@ export default function Auth({
                 <button
                   key={p.role}
                   className="demo-login"
-                  onClick={() => onLogin(enterDemo(p.role as Role))}
+                  onClick={() => onLogin(enterDemo(p.role))}
                 >
                   <span className={`avatar avatar-${i}`}>{p.initials}</span>
                   <span>
@@ -204,7 +218,9 @@ export default function Auth({
         </div>
         <footer>
           <span>© {new Date().getFullYear()} Nexus VA</span>
-          <span>Client & staff portal</span>
+          <a href="/privacy-notice.html" target="_blank" rel="noreferrer">
+            Privacy & review notice
+          </a>
         </footer>
       </div>
     </main>

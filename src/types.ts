@@ -1,4 +1,10 @@
-export type Role = "client" | "staff" | "admin";
+export type Role =
+  | "client"
+  | "staff"
+  | "admin"
+  | "support_reviewer"
+  | "privacy_officer"
+  | "super_admin";
 export type Difficulty = "Easy" | "Medium" | "Hard";
 export type TicketStatus = "Open" | "In progress" | "In review" | "Completed";
 export type PaymentStatus = "Pending" | "Verified" | "Paid";
@@ -57,6 +63,18 @@ export interface Appointment {
   start: string;
   end: string;
   notes: string;
+  status?: "Scheduled" | "No-show";
+}
+export interface AppointmentHistory {
+  id: string;
+  appointmentId: string;
+  clientId: string;
+  staffId: string;
+  title: string;
+  originalStart: string;
+  originalEnd: string;
+  outcome: "Cancelled" | "Rescheduled";
+  changedAt: string;
 }
 export interface Document {
   id: string;
@@ -70,12 +88,18 @@ export interface Document {
   reviewed: boolean;
   isOutput: boolean;
 }
+export type NotificationTarget = {
+  kind: "ticket" | "conversation" | "payment" | "appointment" | "document";
+  id: string;
+};
 export interface Notification {
   id: string;
   userId: string;
   text: string;
   createdAt: string;
   read: boolean;
+  target?: NotificationTarget | null;
+  dismissed?: boolean;
 }
 export interface Audit {
   id: string;
@@ -90,6 +114,7 @@ export interface Workspace {
   messages: Message[];
   payments: Payment[];
   appointments: Appointment[];
+  appointmentHistory?: AppointmentHistory[];
   documents: Document[];
   notifications: Notification[];
   audit: Audit[];
@@ -136,9 +161,24 @@ export type Command =
       notes: string;
     }
   | { type: "cancelAppointment"; appointmentId: string }
+  | {
+      type: "editAppointment";
+      appointmentId: string;
+      title: string;
+      notes: string;
+    }
+  | {
+      type: "rescheduleAppointment";
+      appointmentId: string;
+      start: string;
+      end: string;
+    }
+  | { type: "markNoShow"; appointmentId: string }
   | { type: "addDocument"; document: Document }
   | { type: "reviewDocument"; documentId: string }
-  | { type: "readNotifications" };
+  | { type: "readNotifications"; notificationIds?: string[] }
+  | { type: "setNotificationRead"; notificationId: string; read: boolean }
+  | { type: "dismissNotification"; notificationId: string; dismissed: boolean };
 export const categories = [
   "Administrative support",
   "Content & marketing",
