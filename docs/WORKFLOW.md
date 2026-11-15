@@ -2,10 +2,22 @@
 
 Use two branches and two environments. No deployment runs automatically.
 
-| Branch    | Purpose                                                           |
-| --------- | ----------------------------------------------------------------- |
-| `develop` | Everyday changes and local testing. Leave your working copy here. |
-| `main`    | Tested, versioned source ready for a release.                     |
+| Branch    | Purpose                                                                        |
+| --------- | ------------------------------------------------------------------------------ |
+| `develop` | Shared changes and owner testing before release. Leave your working copy here. |
+| `main`    | Tested, versioned source ready for a release.                                  |
+
+Contributor feature branch → pull request into `develop` → @Seperoth reviews and tests → owner opens `develop` → `main` release PR → owner merges.
+
+Do not send contributor feature PRs straight to `main`. Keep normal merge commits when promoting or syncing the long-lived branches; do not squash or rebase `develop` into `main`.
+
+### GitHub enforcement status
+
+On November 15, 2026, GitHub's branch-protection API returned HTTP 403: "Upgrade to GitHub Pro or make this repository public to enable this feature." Mandatory approvals, blocked direct pushes and required checks could not be enabled under the current repository settings. No visibility or subscription change was made.
+
+`CODEOWNERS` names @Seperoth for review requests. The **Branch flow** check fails a PR into `main` unless it comes from this repository's `develop` and is opened by @Seperoth. Until branch protection is available, these are review guidance and visible checks, not an enforced barrier: writers can still push directly or merge a failing PR. Collaborators must follow the workflow below.
+
+When protection becomes available, require PRs, passing **check** and **Branch flow** checks, resolved conversations, and @Seperoth's code-owner approval on both branches; block force pushes and deletion. Keep owner bypass available for owner-authored release PRs because GitHub does not allow authors to approve their own PRs. Collaborators should have write access rather than admin/bypass access. See [GitHub branch protection](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches).
 
 The existing `codex/*` design branches and original `prototype-1` tags remain as history. No history is rewritten. New releases use `v0.2.0`, `v0.2.1`, and so on. `0.x` versions are still prototype releases.
 
@@ -13,12 +25,13 @@ The existing `codex/*` design branches and original `prototype-1` tags remain as
 
 ```powershell
 git switch develop
-git pull --ff-only
+git pull --ff-only origin develop
+git switch -c codex/describe-your-change
 npm ci
 npm run dev
 ```
 
-Open **http://127.0.0.1:5173**. The Windows launcher also starts development mode. Without credentials, the existing demo accounts and browser-local records keep working.
+Open **http://127.0.0.1:5189** for Test Version 1.3.4.9, or use the URL printed by Vite if the port changes in a later version. The Windows launcher also starts development mode. Browser data is separate for each origin/port. Without credentials, the existing demo accounts and browser-local records keep working.
 
 After a change, add one short note under **Unreleased** in `CHANGELOG.md`, then:
 
@@ -27,8 +40,10 @@ npm run check
 git status
 git add <the-files-you-changed>
 git commit -m "Describe the change"
-git push origin develop
+git push -u origin codex/describe-your-change
 ```
+
+Open a GitHub PR with **base `develop`** and your feature branch as the source. Request @Seperoth's review. Resolve feedback and wait for passing checks; the owner reviews and merges the change into `develop` before testing the combined version. Contributors do not merge into `main`.
 
 GitHub runs the checks on `develop`, `main`, version tags, and pull requests. Its production build uses clearly fake public connection values only to check compilation; it does not connect to a database, upload an artifact, or deploy anything. Live Supabase and email behavior still need manual verification after those services are configured.
 
@@ -71,20 +86,32 @@ Frontend settings are embedded at build time, so rebuild after changing them. Se
 
 ## Make a release
 
-1. On `develop`, run `npm version patch --no-git-tag-version` for a fix, or `npm version minor --no-git-tag-version` for a feature. This updates both package files. Move the Unreleased notes into a dated section with that version.
-2. Run `npm run check`, inspect the relevant screens, commit the release notes and package files, then push `develop`. Wait for GitHub's **App checks** to pass.
-3. Promote the tested commit. For example, if the new version is `0.2.1`:
+1. Contributor PRs first enter `develop`. Prepare any release metadata in another feature PR targeting `develop`. Update both package files, the optional `displayVersion`, and the dated change log together. Current 1.3.4.9 uses package version `1.3.4-9` and display version `1.3.4.9`; keep them consistent without silently renumbering existing releases.
+2. As @Seperoth, update and verify the combined development version:
 
    ```powershell
-   git switch main
-   git pull --ff-only
-   git merge --ff-only develop
-   git tag -a v0.2.1 -m "Prototype 1 - version 0.2.1"
-   git push origin main v0.2.1
    git switch develop
+   git pull --ff-only origin develop
+   npm ci
+   npm run check
+   npm run dev
    ```
 
-If a fast-forward fails, stop and inspect the changes; do not force-push. Optional pull requests can review `develop` → `main` before promotion. Keep the normal merge history rather than squashing the long-lived development branch.
+3. Verify the affected Client, VA and Admin workflows in the browser; review changes, migrations and configuration. Confirm GitHub **App checks** passed. Do not apply a live migration or deploy just to merge source.
+4. Only after verification, @Seperoth opens a PR with **base `main`**, **source `develop` in this repository**. Summarize the tested changes and mark the release-verification checkbox. If code changes during review, recheck the affected behavior. The owner merges using **Create a merge commit**; never squash or rebase this long-lived branch.
+5. Update local branches after the release, then sync the release merge back into development:
+
+   ```powershell
+   git fetch origin
+   git switch main
+   git pull --ff-only origin main
+   git switch develop
+   git pull --ff-only origin develop
+   git merge --ff-only main
+   git push origin develop
+   ```
+
+   With enforced branch protection, use an owner-reviewed `main` → `develop` sync PR instead of a direct push if owner bypass is unavailable. If `develop` has gained other commits and fast-forward fails, use a sync PR; do not force-push. Tag the tested `main` commit with the agreed release identifier after approval. Existing tags remain untouched.
 
 Use **patch** (`0.2.0` → `0.2.1`) for fixes and **minor** (`0.2.0` → `0.3.0`) for features. The app reads its version from `package.json`; no separate UI number needs editing. Hover the version/environment status to see the source commit. Commit your changes before making the final release build so the revision identifies that source accurately.
 
