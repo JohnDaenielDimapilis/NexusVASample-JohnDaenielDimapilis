@@ -26,6 +26,8 @@ Payments remain simulated throughout Prototype 1.
 
 ## Unreleased
 
+- Synced the accepted 1.3.4.9 main version into develop and documented contributor feature PRs → develop → owner verification → main. Added @Seperoth as code owner and a check for owner-led develop-to-main release PRs. GitHub branch protection remains unavailable under the current repository settings; direct-push/merge restrictions are not enforced.
+
 - Proposes the cumulative NexusVA 1.3.4.9 test version for review against the previous 0.2.0 main branch. Includes role dashboards, local attendance with Admin-only verification, privacy oversight, interactive notifications and the latest breadcrumb removal. README documents the additions, review steps and migration/demo limits; no merge or deployment is included.
 
 - Test Version 1.3.4 adds case-based conversation review, historical schedule review, administrative audit, and explicit privacy roles and permissions in additive Supabase migrations.
