@@ -1,0 +1,571 @@
+@import url("/appearance-tokens.css");
+
+.appearance-switch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 11px;
+  border: 1px solid var(--theme-border);
+  border-radius: 8px;
+  background: var(--theme-raised);
+  color: var(--theme-text);
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 600;
+}
+.appearance-switch:hover,
+.appearance-switch[aria-pressed="true"] {
+  background: var(--theme-hover);
+  border-color: var(--theme-accent);
+}
+.appearance-switch:focus-visible,
+.privacy-appearance-switch:focus-visible {
+  outline: 2px solid var(--theme-accent);
+  outline-offset: 2px;
+}
+.auth-appearance-switch {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 5;
+  box-shadow: 0 2px 12px color-mix(in srgb, var(--theme-page), transparent 82%);
+}
+.privacy-workspace > header .privacy-appearance-switch {
+  margin-left: auto;
+}
+.privacy-workspace > header button:last-child {
+  margin-left: 0;
+}
+
+:root[data-appearance="dark"] body {
+  background: var(--canvas);
+}
+:root[data-appearance="dark"] .app-shell .workspace-main:not(.overview-workspace) {
+  background: var(--canvas);
+}
+:root[data-appearance="dark"] .app-shell .content:not(.overview-content) {
+  color: var(--ink);
+}
+:root[data-appearance="dark"] .app-shell .content:not(.overview-content) .section-head h1,
+:root[data-appearance="dark"] .app-shell .content:not(.overview-content) :is(h2, h3),
+:root[data-appearance="dark"] .app-shell .content:not(.overview-content) :is(strong, dt) {
+  color: var(--ink);
+}
+:root[data-appearance="dark"] .app-shell .content:not(.overview-content) :is(p, small, dd, label, th, td, .muted, .subtle) {
+  color: var(--secondary);
+}
+:root[data-appearance="dark"] .app-shell .content:not(.overview-content) .button.primary,
+:root[data-appearance="dark"] .app-shell .content:not(.overview-content) .own .message-bubble {
+  background: var(--theme-button);
+  color: var(--theme-button-text);
+}
+:root[data-appearance="dark"] .app-shell .content:not(.overview-content) .button.primary :is(span, strong),
+:root[data-appearance="dark"] .app-shell .content:not(.overview-content) .own .message-bubble :is(span, strong) {
+  color: var(--theme-button-text);
+}
+:root[data-appearance="dark"] .app-shell :is(.button.secondary, .button.danger-secondary) {
+  background: var(--theme-raised);
+  color: var(--theme-text);
+  border-color: var(--theme-border);
+}
+:root[data-appearance="dark"] .app-shell :is(.button.secondary, .button.danger-secondary):hover {
+  background: var(--theme-hover);
+}
+:root[data-appearance="dark"] .app-shell :is(.text-button, .team-link, .notification-action, .page-tabs > button) {
+  color: var(--theme-accent);
+}
+:root[data-appearance="dark"] .app-shell .icon-button:hover {
+  background: var(--theme-hover);
+  color: var(--theme-text);
+}
+
+/* Panels, lists, and data tables share the same quiet dark surfaces. */
+:root[data-appearance="dark"] .app-shell :is(.panel, .popover, .modal, .assistant-directory-card, .chat-file) {
+  background: var(--theme-surface);
+  color: var(--ink);
+  border-color: var(--border);
+}
+:root[data-appearance="dark"] .app-shell :is(.panel-head, .modal-head, .conversation-heading, .chat-head, .profile-form .panel-head) {
+  background: var(--theme-surface);
+  border-color: var(--border);
+}
+:root[data-appearance="dark"] .app-shell :is(.popover-head, .account-details, .notification-item, .conversation-item, .appointment-row, .activity-item, .profile-detail, .profile-status, .panel-foot, .pagination, .form-section-title, .form-actions, .toggle-row, .ticket-section, .ticket-section-head, .tool-card > small, .team-person + .team-person, .chat-project-strip, .service-flow) {
+  border-color: var(--border);
+}
+:root[data-appearance="dark"] .app-shell :is(th, .operations-matrix thead th) {
+  background: var(--theme-raised);
+  border-color: var(--border);
+  color: var(--secondary);
+}
+:root[data-appearance="dark"] .app-shell :is(td, .operations-matrix tbody th) {
+  background: var(--theme-surface);
+  border-color: var(--border);
+  color: var(--secondary);
+}
+:root[data-appearance="dark"] .app-shell :is(.clickable-row:hover, .conversation-item:hover, .conversation-item.selected, .notification-item.unread, .account-popover > button:hover) {
+  background: var(--theme-hover);
+}
+:root[data-appearance="dark"] .app-shell :is(.badge, .page-tabs button > span, .project-icon, .payment-icon, .file-icon, .date-tile, .empty-icon, .tool-letter, .assistant-skill-list span, .assistant-skill-list small) {
+  background: var(--theme-accent-soft);
+  color: var(--theme-text);
+}
+:root[data-appearance="dark"] .app-shell :is(.badge.paid, .badge.completed, .badge.active) {
+  background: var(--theme-success-bg);
+  color: var(--theme-success-text);
+}
+:root[data-appearance="dark"] .app-shell :is(.badge.in-review, .badge.verified, .badge.pending, .badge.open, .badge.in-progress) {
+  background: var(--theme-accent-soft);
+  color: var(--theme-accent);
+}
+:root[data-appearance="dark"] .app-shell :is(.billing-demo-banner, .document-summary, .info-note, .ticket-facts, .ticket-payment, .ticket-file, .team-note, .matrix-note, .chat-project-strip, .chat-closed, .calendar-note) {
+  background: var(--theme-raised);
+  border-color: var(--border);
+  color: var(--secondary);
+}
+:root[data-appearance="dark"] .app-shell :is(.service-flow-bar, .intake-track) {
+  background: var(--theme-chart-track);
+}
+:root[data-appearance="dark"] .app-shell :is(.message-bubble, .chat-body) {
+  background: var(--theme-raised);
+  color: var(--ink);
+}
+:root[data-appearance="dark"] .app-shell .own .message-bubble {
+  background: var(--theme-button);
+  color: var(--theme-button-text);
+}
+:root[data-appearance="dark"] .app-shell .chat-composer {
+  background: var(--theme-surface);
+  border-color: var(--border);
+}
+:root[data-appearance="dark"] .app-shell :is(.profile-card, .profile-form, .tool-card, .assistant-directory-card) :is(h2, strong) {
+  color: var(--ink);
+}
+
+/* Forms and dialogs remain usable without a bright inset surface. */
+:root[data-appearance="dark"] .app-shell :is(.field input:not([type="checkbox"]):not([type="radio"]), .field select, .field textarea, .search-box, .input-prefix, .chat-composer textarea, .assistant-directory-controls input, .assistant-directory-controls select, .global-search) {
+  background: var(--theme-input);
+  border-color: var(--theme-border);
+  color: var(--ink);
+}
+:root[data-appearance="dark"] .app-shell :is(input, textarea, select) {
+  color: var(--ink);
+}
+:root[data-appearance="dark"] .app-shell :is(input, textarea)::placeholder {
+  color: var(--theme-muted);
+}
+:root[data-appearance="dark"] .scroll-layout-v132 .modal .form-actions {
+  background: var(--theme-surface);
+}
+:root[data-appearance="dark"] .app-shell .form-actions .muted {
+  color: var(--secondary);
+}
+:root[data-appearance="dark"] .app-shell :is(.difficulty-options > label, .skills-options label) {
+  background: var(--theme-input);
+  border-color: var(--border);
+  color: var(--secondary);
+}
+:root[data-appearance="dark"] .app-shell .difficulty-options > label:has(input:checked) {
+  background: var(--theme-accent-soft);
+  border-color: var(--theme-accent);
+}
+:root[data-appearance="dark"] .app-shell .modal-backdrop {
+  background: var(--theme-overlay);
+}
+
+/* The participant calendar is already dark in both modes; its agenda keeps
+   the existing high-contrast Nexus treatment. */
+:root[data-appearance="dark"] .app-shell .nexus-calendar :is(.calendar-panel, .calendar-upcoming) {
+  background: var(--theme-surface);
+}
+
+/* Privacy-only roles use the same appearance preference. */
+:root[data-appearance="dark"] .privacy-workspace {
+  background: var(--theme-page);
+  color: var(--ink);
+}
+:root[data-appearance="dark"] .privacy-desk,
+:root[data-appearance="dark"] .privacy-desk :is(h1, h2, h3, dt, dd, strong, label) {
+  color: var(--ink);
+}
+:root[data-appearance="dark"] .privacy-desk :is(p, small) {
+  color: var(--secondary);
+}
+:root[data-appearance="dark"] .privacy-desk .privacy-panel {
+  background: var(--theme-surface);
+  border-color: var(--border);
+  box-shadow: none;
+}
+:root[data-appearance="dark"] .privacy-desk :is(.privacy-case-list button, .privacy-alert, .privacy-state) {
+  background: var(--theme-input);
+  border-color: var(--border);
+  color: var(--ink);
+}
+:root[data-appearance="dark"] .privacy-desk .privacy-case-list :is(button:hover, button.selected) {
+  background: var(--theme-hover);
+}
+:root[data-appearance="dark"] .privacy-desk :is(input, select, textarea) {
+  background: var(--theme-input);
+  border-color: var(--theme-border);
+  color: var(--ink);
+}
+:root[data-appearance="dark"] .privacy-workspace footer {
+  color: var(--secondary);
+}
+
+:root[data-appearance="dark"] .auth,
+:root[data-appearance="dark"] .auth-form-side {
+  background: var(--theme-page);
+  color: var(--ink);
+}
+:root[data-appearance="dark"] .auth :is(.demo-login, .auth-note, .auth-form input) {
+  background: var(--theme-surface);
+  color: var(--ink);
+  border-color: var(--border);
+}
+:root[data-appearance="dark"] .auth :is(.auth-form h2, .demo-login strong) {
+  color: var(--ink);
+}
+
+@media (max-width: 1100px) {
+  .appearance-switch {
+    width: 40px;
+    padding: 0;
+  }
+  .appearance-switch span {
+    display: none;
+  }
+}
+@media (max-width: 700px) {
+  .privacy-workspace > header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .privacy-workspace > header img {
+    width: 118px;
+  }
+  .privacy-workspace > header span {
+    display: none;
+  }
+  .privacy-workspace > header .privacy-appearance-switch {
+    margin-left: auto;
+  }
+}
+
+/* Shared shell and workspace roles. The purple sidebar anchors the brand in
+   light mode; dark mode deepens it without changing navigation structure. */
+:root[data-appearance] {
+  background: var(--theme-page);
+  color: var(--theme-text);
+}
+:root[data-appearance] body {
+  background: var(--theme-page);
+}
+:root[data-appearance] .command-v131 .sidebar {
+  background: var(--theme-sidebar);
+  border-color: var(--theme-subtle-border);
+}
+:root[data-appearance] .command-v131 .topbar {
+  background: var(--theme-header);
+  border-color: var(--theme-border);
+  color: var(--theme-text);
+}
+:root[data-appearance] .command-v131 .topbar .breadcrumbs,
+:root[data-appearance] .command-v131 .topbar .breadcrumbs > svg,
+:root[data-appearance] .command-v131 .topbar .mode-label {
+  color: var(--theme-muted);
+}
+:root[data-appearance] .command-v131 .topbar :is(.breadcrumbs strong, .account-button) {
+  color: var(--theme-text);
+}
+:root[data-appearance] .command-v131 .topbar :is(.global-search, .notification-button) {
+  background: var(--theme-raised);
+  border-color: var(--theme-border);
+  color: var(--theme-text);
+}
+:root[data-appearance] .command-v131 .topbar .global-search input {
+  color: var(--theme-text);
+}
+:root[data-appearance] .command-v131 .topbar :is(.global-search input::placeholder, .global-search kbd) {
+  color: var(--theme-muted);
+}
+:root[data-appearance] .command-v131 .topbar :is(.global-search kbd, .topbar-divider) {
+  border-color: var(--theme-border);
+}
+:root[data-appearance] .scroll-layout-v132 .workspace-main {
+  background: var(--theme-page);
+}
+:root[data-appearance] .scroll-layout-v132 .workspace-main.overview-workspace {
+  background: var(--theme-page);
+}
+:root[data-appearance="dark"] .scroll-layout-v132 .workspace-main.overview-workspace {
+  background: linear-gradient(180deg, var(--theme-surface) 0, var(--theme-page) 460px);
+}
+:root[data-appearance] .app-shell :is(.button.primary, .page-tabs > button.active) {
+  border-color: var(--theme-button);
+}
+:root[data-appearance] .app-shell .button.primary {
+  background: var(--theme-button);
+  color: var(--theme-button-text);
+}
+:root[data-appearance] .app-shell .button.primary:hover {
+  background: var(--theme-accent);
+}
+:root[data-appearance="dark"] .app-shell .button.primary:hover {
+  background: var(--theme-button-hover);
+}
+
+/* Dashboard panels use the same semantic color roles in both themes. */
+:root[data-appearance] .command-v131 .overview-content {
+  --command-bg: var(--theme-page);
+  --command-panel: var(--theme-surface);
+  --command-panel-raised: var(--theme-raised);
+  --command-border: var(--theme-border);
+  --command-text: var(--theme-text);
+  --command-muted: var(--theme-muted);
+  --command-lavender: var(--theme-chart-fill);
+  --command-amber: var(--theme-warning-text);
+  --ink: var(--theme-text);
+  --secondary: var(--theme-muted);
+  --muted: var(--theme-muted);
+  --border: var(--theme-border);
+  --surface: var(--theme-surface);
+  color: var(--theme-text);
+}
+:root[data-appearance] .command-v131 .overview-content :is(.section-head h1, .dashboard-summary dd, .dashboard-visual-card h3, .panel-head h2, .table-title, .project-cell strong, .intake-facts strong) {
+  color: var(--theme-text);
+}
+:root[data-appearance] .command-v131 .overview-content :is(.section-head p, .dashboard-summary dt, .visual-card-facts, .panel-head p, .project-cell small, .intake-note, .intake-bin small) {
+  color: var(--theme-muted);
+}
+:root[data-appearance] .command-v131 .overview-content .dashboard-summary > div {
+  background: var(--theme-surface);
+  border-color: var(--theme-border);
+  box-shadow: none;
+}
+:root[data-appearance] .command-v131 .overview-content .dashboard-summary > div:nth-child(2) {
+  border-top-color: var(--theme-chart-fill);
+}
+:root[data-appearance] .command-v131 .overview-content .dashboard-summary > div::before {
+  background: var(--theme-chart-fill);
+}
+:root[data-appearance] .command-v131 .overview-content .dashboard-visual-card,
+:root[data-appearance] .command-v131 .overview-content .panel {
+  background: var(--theme-surface);
+  border-color: var(--theme-border);
+  box-shadow: none;
+  color: var(--theme-text);
+}
+:root[data-appearance] .command-v131 .overview-content .dashboard-feature {
+  background: var(--theme-feature);
+  border-color: var(--theme-border);
+  box-shadow: none;
+  color: var(--theme-feature-text);
+}
+:root[data-appearance] .command-v131 .overview-content .dashboard-feature-content {
+  background: transparent;
+}
+:root[data-appearance] .command-v131 .overview-content .dashboard-feature :is(h2, .dashboard-feature-label) {
+  color: var(--theme-feature-text);
+}
+:root[data-appearance] .command-v131 .overview-content .dashboard-feature p {
+  color: var(--theme-feature-muted);
+}
+:root[data-appearance] .command-v131 .overview-content .dashboard-feature .button {
+  background: var(--theme-button);
+  border-color: var(--theme-button);
+  color: var(--theme-button-text);
+}
+:root[data-appearance] .command-v131 .overview-content .dashboard-feature .button:hover {
+  background: var(--theme-accent);
+  border-color: var(--theme-accent);
+  color: var(--theme-button-text);
+}
+:root[data-appearance="dark"] .command-v131 .overview-content .dashboard-feature .button:hover {
+  background: var(--theme-button-hover);
+  border-color: var(--theme-button-hover);
+}
+:root[data-appearance] .command-v131 .overview-content .visual-card-category,
+:root[data-appearance] .command-v131 .overview-content :is(.visual-card-action, .text-button, .team-link) {
+  color: var(--theme-accent);
+}
+:root[data-appearance] .command-v131 .overview-content .visual-card-action,
+:root[data-appearance] .command-v131 .overview-content .dashboard-secondary > .panel + .panel,
+:root[data-appearance] .command-v131 .overview-content .activity-item + .activity-item,
+:root[data-appearance] .command-v131 .overview-content .team-person + .team-person {
+  border-color: var(--theme-border);
+}
+:root[data-appearance] .command-v131 .overview-content .dashboard-secondary {
+  background: var(--theme-surface);
+  border-color: var(--theme-border);
+}
+:root[data-appearance] .command-v131 .overview-content .dashboard-secondary > .panel {
+  background: transparent;
+}
+:root[data-appearance] .command-v131 .overview-content .dashboard-secondary :is(.panel-head h2, .team-person strong, .activity-item p, .service-flow-head h3, .service-flow-legend strong, .date-tile strong) {
+  color: var(--theme-text);
+}
+:root[data-appearance] .command-v131 .overview-content .dashboard-secondary :is(.panel-head p, .team-person small, .team-empty, .activity-item small, .activity-list > .muted, .service-flow-head p, .service-flow-legend > span, .appointment-info > span, .appointment-info > small, .date-tile > span) {
+  color: var(--theme-muted);
+}
+:root[data-appearance] .command-v131 .overview-content .dashboard-secondary :is(.team-link, .panel-head .text-button) {
+  color: var(--theme-accent);
+}
+:root[data-appearance] .command-v131 .overview-content :is(.badge, .count-pill, .team-status) {
+  background: var(--theme-accent-soft);
+  color: var(--theme-accent);
+}
+:root[data-appearance] .command-v131 .overview-content :is(.badge.completed, .badge.paid) {
+  background: var(--theme-success-bg);
+  color: var(--theme-success-text);
+}
+:root[data-appearance] .command-v131 .overview-content :is(.badge.pending, .badge.open) {
+  background: var(--theme-warning-bg);
+  color: var(--theme-warning-text);
+}
+:root[data-appearance] .command-v131 .overview-content .attention-panel {
+  border-left-color: var(--theme-warning-text);
+}
+:root[data-appearance] .command-v131 .overview-content .attention-item .button {
+  background: var(--theme-raised);
+  border-color: var(--theme-border);
+  color: var(--theme-accent);
+}
+:root[data-appearance] .command-v131 .overview-content .project-panel th {
+  background: var(--theme-raised);
+  border-color: var(--theme-border);
+  color: var(--theme-muted);
+}
+:root[data-appearance] .command-v131 .overview-content .project-panel :is(td, tr) {
+  background: var(--theme-surface);
+  border-color: var(--theme-border);
+  color: var(--theme-text);
+}
+:root[data-appearance] .command-v131 .overview-content .project-panel .clickable-row:hover {
+  background: var(--theme-hover);
+}
+:root[data-appearance] .command-v131 .overview-content .dashboard-secondary :is(.status-chart-row, .workload-row) {
+  color: var(--theme-text);
+  border-color: var(--theme-border);
+}
+:root[data-appearance] .command-v131 .overview-content .dashboard-secondary :is(.status-chart-row, .workload-row):is(:hover, :focus-visible) {
+  background: var(--theme-hover);
+}
+:root[data-appearance] .command-v131 .overview-content .dashboard-secondary .workload-row small,
+:root[data-appearance] .command-v131 .overview-content .dashboard-secondary .appointments-panel .empty,
+:root[data-appearance] .command-v131 .overview-content .dashboard-secondary .appointments-panel .empty p {
+  color: var(--theme-muted);
+}
+:root[data-appearance] .command-v131 .overview-content .dashboard-secondary .appointments-panel .empty h3,
+:root[data-appearance] .command-v131 .overview-content .dashboard-secondary .appointment-info > strong {
+  color: var(--theme-text);
+}
+:root[data-appearance] .command-v131 .overview-content .dashboard-secondary .appointment-row > .icon-button {
+  color: var(--theme-accent);
+}
+:root[data-appearance] .command-v131 .overview-content :is(.date-tile, .mobile-request-card) {
+  background: var(--theme-raised);
+  border-color: var(--theme-border);
+}
+:root[data-appearance] .command-v131 .overview-content :is(.status-chart-track, .workload-track, .service-flow-bar, .intake-track) {
+  background: var(--theme-chart-track);
+}
+:root[data-appearance] .command-v131 .overview-content :is(.status-chart-track > span, .workload-track > span, .intake-track i) {
+  background: var(--theme-chart-fill);
+}
+:root[data-appearance] .command-v131 .overview-content .intake-range select {
+  background: var(--theme-input);
+  border-color: var(--theme-border);
+  color: var(--theme-text);
+}
+:root[data-appearance] .command-v131 .overview-content .workspace-footer {
+  color: var(--theme-muted);
+}
+
+/* Light calendar: the compact reference layout stays intact, while the month
+   grid and agenda become quiet white working surfaces. */
+:root[data-appearance="light"] .nexus-calendar :is(.calendar-panel, .calendar-upcoming) {
+  background: var(--theme-surface);
+  border-color: var(--theme-border);
+  color: var(--theme-text);
+}
+:root[data-appearance="light"] .nexus-calendar :is(.calendar-intro h2, .calendar-upcoming .panel-head h2, .calendar-upcoming .appointment-info > strong, .calendar-next h3, .calendar-upcoming .empty h3) {
+  color: var(--theme-text);
+}
+:root[data-appearance="light"] .nexus-calendar :is(.calendar-intro span, .calendar-intro p, .calendar-day-label, .calendar-upcoming .panel-head p, .calendar-upcoming .appointment-info span, .calendar-upcoming .appointment-info small, .calendar-upcoming .empty p) {
+  color: var(--theme-muted);
+}
+:root[data-appearance="light"] .nexus-calendar .fc {
+  --fc-border-color: var(--theme-border);
+  --fc-today-bg-color: var(--theme-raised);
+  --fc-neutral-bg-color: var(--theme-raised);
+  --fc-page-bg-color: var(--theme-surface);
+  color: var(--theme-text);
+}
+:root[data-appearance="light"] .nexus-calendar .fc .fc-toolbar-title,
+:root[data-appearance="light"] .nexus-calendar .fc .fc-daygrid-day-number {
+  color: var(--theme-text);
+}
+:root[data-appearance="light"] .nexus-calendar .fc .fc-button {
+  background: var(--theme-raised);
+  border-color: var(--theme-border);
+  color: var(--theme-accent);
+}
+:root[data-appearance="light"] .nexus-calendar .fc .fc-col-header-cell {
+  background: var(--theme-raised);
+  color: var(--theme-muted);
+}
+:root[data-appearance="light"] .nexus-calendar .fc .fc-day-other {
+  background: var(--theme-page);
+}
+:root[data-appearance="light"] .nexus-calendar .fc .fc-day-other .fc-daygrid-day-number,
+:root[data-appearance="light"] .nexus-calendar .fc .fc-timegrid-slot-label {
+  color: var(--theme-muted);
+}
+:root[data-appearance="light"] .nexus-calendar .fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number {
+  background: var(--theme-button);
+  color: var(--theme-button-text);
+}
+:root[data-appearance="light"] .nexus-calendar .fc .fc-scrollgrid,
+:root[data-appearance="light"] .nexus-calendar .calendar-upcoming .appointment-row,
+:root[data-appearance="light"] .nexus-calendar .calendar-next {
+  border-color: var(--theme-border);
+}
+:root[data-appearance="light"] .nexus-calendar .calendar-upcoming .date-tile,
+:root[data-appearance="light"] .nexus-calendar .calendar-upcoming .empty-icon,
+:root[data-appearance="light"] .nexus-calendar .calendar-note {
+  background: var(--theme-raised);
+  border-color: var(--theme-border);
+  color: var(--theme-muted);
+}
+:root[data-appearance="light"] .nexus-calendar .calendar-upcoming .date-tile strong,
+:root[data-appearance="light"] .nexus-calendar .calendar-note p {
+  color: var(--theme-text);
+}
+
+/* Small-screen controls remain touch-sized without crowding the header. */
+@media (max-width: 900px) {
+  :root[data-appearance] .command-v131 .topbar {
+    background: var(--theme-header);
+  }
+}
+@media (max-width: 700px) {
+  .appearance-switch {
+    min-width: 40px;
+    width: 40px;
+    padding: 0;
+  }
+  .appearance-switch span {
+    display: none;
+  }
+  .auth-appearance-switch span,
+  .privacy-appearance-switch span {
+    display: inline;
+  }
+  .auth-appearance-switch,
+  .privacy-appearance-switch {
+    width: auto;
+    padding: 0 10px;
+  }
+}

@@ -2,7 +2,8 @@ import { createClient } from "@supabase/supabase-js";
 import type { Session } from "@supabase/supabase-js";
 import type { Command, Document, Profile, Role, Workspace } from "./types";
 import { applyCommand, uid } from "./domain";
-import { createSeed, demoIds } from "./seed";
+import { demoIds } from "./seed";
+import { createReportingDemo } from "./reporting-demo";
 import { appConfig } from "./app-config";
 
 export const mode = appConfig.dataMode;
@@ -24,7 +25,7 @@ export const getDemoIdentity = (): Identity | null => {
     return null;
   }
 };
-export const enterDemo = (role: Role) => {
+export const enterDemo = (role: "client" | "staff" | "admin") => {
   const identity = { id: demoIds[role], role };
   sessionStorage.setItem(SESSION_KEY, JSON.stringify(identity));
   return identity;
@@ -38,10 +39,66 @@ export async function logout() {
 export async function loadWorkspace(): Promise<Workspace> {
   if (!supabase) {
     const raw = localStorage.getItem(DATA_KEY);
-    if (raw) return JSON.parse(raw);
-    const seed = createSeed();
-    localStorage.setItem(DATA_KEY, JSON.stringify(seed));
-    return seed;
+    const full: Workspace = raw ? JSON.parse(raw) : createReportingDemo();
+    if (!raw) localStorage.setItem(DATA_KEY, JSON.stringify(full));
+    const identity = getDemoIdentity();
+    if (!identity) return full;
+    const actor = full.profiles.find((profile) => profile.id === identity.id);
+    if (!actor) return full;
+    const tickets = full.tickets.filter(
+      (ticket) =>
+        actor.role === "admin" ||
+        ticket.clientId === actor.id ||
+        ticket.assigneeId === actor.id ||
+        (actor.role === "staff" && !ticket.assigneeId),
+    );
+    const participantTickets = full.tickets.filter(
+      (ticket) =>
+        (actor.role === "client" && ticket.clientId === actor.id) ||
+        (actor.role === "staff" && ticket.assigneeId === actor.id),
+    );
+    const ticketIds = new Set(tickets.map((ticket) => ticket.id));
+    const participantIds = new Set(
+      participantTickets.map((ticket) => ticket.id),
+    );
+    return {
+      ...full,
+      profiles: full.profiles.map((profile) =>
+        actor.role === "admin"
+          ? { ...profile, available: false, autoAssign: false }
+          : profile,
+      ),
+      tickets,
+      messages: full.messages.filter((message) =>
+        participantIds.has(message.ticketId),
+      ),
+      payments: full.payments.filter((payment) =>
+        ticketIds.has(payment.ticketId),
+      ),
+      appointments: full.appointments.filter(
+        (appointment) =>
+          actor.role !== "admin" &&
+          (appointment.clientId === actor.id ||
+            appointment.staffId === actor.id),
+      ),
+      documents: full.documents.filter(
+        (document) =>
+          (document.ticketId === null && document.ownerId === actor.id) ||
+          (document.ticketId !== null && participantIds.has(document.ticketId)),
+      ),
+      notifications: full.notifications.filter(
+        (note) => note.userId === actor.id,
+      ),
+      audit:
+        actor.role === "admin"
+          ? full.audit.filter(
+              (entry) =>
+                !/^(Scheduled an appointment|Cancelled an appointment|Rescheduled an appointment|Marked an appointment|Updated appointment details|Uploaded |Reviewed )/i.test(
+                  entry.text,
+                ),
+            )
+          : [],
+    };
   }
   const names = [
     "profiles",
@@ -54,13 +111,40 @@ export async function loadWorkspace(): Promise<Workspace> {
     "audit",
   ] as const;
   const results = await Promise.all(
-    names.map((n) => supabase!.from(n).select("*")),
+    names.map((n) =>
+      n === "profiles"
+        ? supabase!
+            .from(n)
+            .select("id,name,email,role,company,bio,status,skillLevel,skills")
+        : supabase!.from(n).select("*"),
+    ),
   );
   const state = {} as Workspace;
   results.forEach((r, i) => {
     if (r.error) throw r.error;
     Object.assign(state, { [names[i]]: r.data });
   });
+  const { data: settings, error: settingsError } = await supabase.rpc(
+    "visible_staff_settings",
+  );
+  if (settingsError) throw settingsError;
+  const settingsById = new Map<
+    string,
+    { available: boolean; autoAssign: boolean }
+  >(
+    (
+      (settings || []) as {
+        id: string;
+        available: boolean;
+        autoAssign: boolean;
+      }[]
+    ).map((row) => [row.id, row]),
+  );
+  state.profiles = state.profiles.map((profile) => ({
+    ...profile,
+    available: settingsById.get(profile.id)?.available ?? false,
+    autoAssign: settingsById.get(profile.id)?.autoAssign ?? false,
+  }));
   state.messages.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   state.tickets.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   state.notifications.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -73,7 +157,9 @@ export async function runCommand(actorId: string, command: Command) {
     if (error) throw new Error(error.message);
   } else {
     const mutate = async () => {
-      const state = applyCommand(await loadWorkspace(), actorId, command);
+      const raw = localStorage.getItem(DATA_KEY);
+      const full: Workspace = raw ? JSON.parse(raw) : createReportingDemo();
+      const state = applyCommand(full, actorId, command);
       localStorage.setItem(DATA_KEY, JSON.stringify(state));
     };
     if (navigator.locks) await navigator.locks.request(DATA_KEY, mutate);

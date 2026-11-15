@@ -1,0 +1,363 @@
+.role-dashboard {
+  gap: 12px;
+}
+.role-dashboard .role-readonly-metric {
+  cursor: default;
+  text-align: left;
+  font: inherit;
+}
+.role-dashboard .role-readonly-metric:hover {
+  transform: none;
+}
+.role-timezone {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--theme-muted);
+  white-space: nowrap;
+}
+.role-attendance-status > strong {
+  display: block;
+  color: var(--theme-accent);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.role-attendance-status > p {
+  font-size: 11px;
+  line-height: 1.8;
+  color: var(--theme-muted);
+}
+.role-attendance-status > small {
+  font-size: 10px;
+  line-height: 1.8;
+  color: var(--theme-muted);
+}
+.role-clockout-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 0 24px 24px;
+}
+.role-clockout-form > .field,
+.role-clockout-form > p {
+  flex-basis: 100%;
+}
+.role-dashboard .owner-heading {
+  align-items: flex-start;
+}
+.role-dashboard .owner-heading > div {
+  min-width: 0;
+}
+.role-dashboard .owner-heading h1 {
+  overflow-wrap: anywhere;
+}
+.role-dashboard .owner-heading > button {
+  flex-shrink: 0;
+}
+.role-dashboard .owner-metric {
+  min-height: 106px;
+}
+.role-dashboard .owner-metric > strong {
+  font-size: 25px;
+}
+.role-dashboard .owner-filter-controls {
+  flex-wrap: nowrap;
+}
+.role-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+.role-primary,
+.role-secondary {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+.role-dashboard .owner-panel {
+  min-width: 0;
+}
+.role-dashboard h2 {
+  line-height: 1.5;
+}
+.role-dashboard .owner-panel-head {
+  align-items: start;
+  gap: 8px;
+}
+.role-dashboard .owner-panel-head p {
+  font-size: 11px;
+}
+.role-record-list,
+.role-action-list {
+  display: grid;
+}
+.role-record {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  gap: 12px;
+  align-items: center;
+  text-align: left;
+  padding: 13px 0;
+  border: 0;
+  border-top: 1px solid var(--theme-subtle-border);
+  background: transparent;
+  color: var(--theme-text);
+  font: inherit;
+  cursor: pointer;
+}
+.role-record:first-child,
+.role-action:first-child {
+  border-top: 0;
+}
+.role-record > div,
+.role-action > div {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: 4px;
+}
+.role-record strong,
+.role-action strong {
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.role-record small,
+.role-action small {
+  color: var(--theme-muted);
+  font-size: 10px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.role-record > svg {
+  color: var(--theme-accent);
+  flex-shrink: 0;
+}
+.role-record:hover {
+  background: var(--theme-hover);
+  border-radius: 6px;
+}
+.role-record > .badge {
+  flex-shrink: 0;
+  max-width: 130px;
+  white-space: normal;
+}
+.role-empty {
+  margin: 0;
+  padding: 18px 0;
+  color: var(--theme-muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.role-action {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 11px 0;
+  border-top: 1px solid var(--theme-subtle-border);
+}
+.role-action > button {
+  flex-shrink: 0;
+}
+.role-reason {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--theme-accent);
+}
+.role-reason.role-danger {
+  color: var(--neu-danger-text);
+}
+.role-message-preview {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  font-size: 11px;
+  color: var(--theme-muted);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.role-outside {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid var(--theme-border);
+  background: var(--theme-warning-bg);
+  color: var(--theme-warning-text);
+  padding: 10px 13px;
+  border-radius: 10px;
+}
+.role-outside > svg {
+  flex-shrink: 0;
+}
+.role-outside > span {
+  display: grid;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+.role-outside strong {
+  font-size: 12px;
+}
+.role-outside small {
+  font-size: 10px;
+  line-height: 1.5;
+}
+.role-timer {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.role-timer > svg {
+  color: var(--theme-accent);
+  flex-shrink: 0;
+}
+.role-timer > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+.role-timer strong {
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.role-timer small {
+  color: var(--theme-muted);
+  font-size: 10px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.role-timer > .role-current-duration {
+  flex: 0 1 auto;
+  text-align: right;
+}
+.role-time-totals {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 12px 0;
+}
+.role-time-totals > div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.role-time-totals dt {
+  font-size: 10px;
+  color: var(--theme-muted);
+}
+.role-time-totals dd {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.role-fineprint {
+  font-size: 10px;
+  line-height: 1.7;
+  color: var(--theme-muted);
+  margin: 10px 0 0;
+}
+.role-report-detail {
+  padding: 0 22px 22px;
+  color: var(--theme-text);
+}
+.role-time-row {
+  display: grid;
+  gap: 5px;
+  border-top: 1px solid var(--theme-border);
+  padding: 13px 0;
+  font-size: 12px;
+}
+.role-time-row small {
+  color: var(--theme-muted);
+}
+.role-report-detail .role-record strong {
+  font-size: 14px;
+}
+.role-report-detail .role-record small {
+  font-size: 12px;
+}
+.role-dashboard .owner-data-note {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.role-dashboard .owner-data-note > button {
+  font-size: 10px;
+}
+@media (max-width: 1100px) {
+  .role-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .role-secondary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 700px) {
+  .role-timezone {
+    display: none;
+  }
+  .role-secondary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .role-dashboard .owner-heading {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .role-dashboard .owner-metric {
+    min-height: 120px;
+  }
+  .role-dashboard .owner-metric > strong {
+    font-size: 23px;
+  }
+  .role-timer {
+    flex-wrap: wrap;
+  }
+  .role-timer > div {
+    flex-basis: 65%;
+  }
+  .role-timer > .role-current-duration {
+    text-align: left;
+  }
+  .role-outside {
+    flex-wrap: wrap;
+  }
+  .role-outside > button {
+    margin-left: 28px;
+  }
+  .role-action {
+    align-items: start;
+    flex-wrap: wrap;
+  }
+  .role-action > div {
+    flex-basis: 100%;
+  }
+  .role-record {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .role-record > div {
+    flex-basis: calc(100% - 44px);
+  }
+  .role-record > .badge {
+    order: 3;
+  }
+  .role-record small {
+    font-size: 11px;
+  }
+  .role-record strong {
+    font-size: 13px;
+  }
+  .role-report-detail {
+    padding-inline: 16px;
+  }
+}
+@media (max-width: 600px) {
+  .role-dashboard .owner-filter-controls > .button {
+    grid-column: 1/4;
+  }
+}

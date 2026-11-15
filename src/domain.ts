@@ -1,5 +1,12 @@
 import { categories, difficulties, paymentSummary } from "./types";
-import type { Command, Profile, Ticket, Workspace } from "./types";
+import { isNotificationCommand, updateNotifications } from "./notifications";
+import type {
+  NotificationTarget,
+  Command,
+  Profile,
+  Ticket,
+  Workspace,
+} from "./types";
 
 export const uid = () => crypto.randomUUID();
 export function applyCommand(
@@ -11,14 +18,17 @@ export function applyCommand(
   const actor = s.profiles.find((p) => p.id === actorId);
   if (!actor || actor.status !== "Active")
     throw new Error("An active account is required.");
+  if (isNotificationCommand(command))
+    return updateNotifications(s, actor.id, command);
   const now = new Date().toISOString();
-  const notify = (userId: string, text: string) =>
+  const notify = (userId: string, text: string, target: NotificationTarget) =>
     s.notifications.unshift({
       id: uid(),
       userId,
       text,
       createdAt: now,
       read: false,
+      target,
     });
   const log = (text: string, ticketId: string | null = null) =>
     s.audit.unshift({ id: uid(), actorId, ticketId, text, createdAt: now });
@@ -27,10 +37,6 @@ export function applyCommand(
     if (!t) throw new Error("Ticket not found.");
     return t;
   };
-  const participant = (t: Ticket) =>
-    actor.role === "admin" ||
-    t.clientId === actor.id ||
-    t.assigneeId === actor.id;
   const staff = (t: Ticket) =>
     actor.role === "admin" ||
     (actor.role === "staff" && t.assigneeId === actor.id);
@@ -46,8 +52,14 @@ export function applyCommand(
   const assign = (t: Ticket, p: Profile) => {
     t.assigneeId = p.id;
     t.status = "In progress";
-    notify(p.id, `You’ve been assigned to ${t.title}.`);
-    notify(t.clientId, `${p.name} is now working on ${t.title}.`);
+    notify(p.id, `You’ve been assigned to ${t.title}.`, {
+      kind: "ticket",
+      id: t.id,
+    });
+    notify(t.clientId, `${p.name} is now working on ${t.title}.`, {
+      kind: "ticket",
+      id: t.id,
+    });
     systemMessage(t, `${p.name} joined the conversation.`);
   };
   switch (command.type) {
@@ -107,7 +119,12 @@ export function applyCommand(
       log("Created a service request", t.id);
       s.profiles
         .filter((p) => p.role === "staff" || p.role === "admin")
-        .forEach((p) => notify(p.id, `New request: ${t.title}.`));
+        .forEach((p) =>
+          notify(p.id, `New request: ${t.title}.`, {
+            kind: "ticket",
+            id: t.id,
+          }),
+        );
       break;
     }
     case "acceptTicket": {
@@ -146,7 +163,12 @@ export function applyCommand(
     }
     case "sendMessage": {
       const t = ticket(command.ticketId);
-      if (!participant(t) || !t.assigneeId || t.status === "Completed")
+      if (
+        !(actor.role === "client" && t.clientId === actor.id) &&
+        !(actor.role === "staff" && t.assigneeId === actor.id)
+      )
+        throw new Error("Messages require an assigned participant.");
+      if (!t.assigneeId || t.status === "Completed")
         throw new Error("Messages require an assigned, open request.");
       if (!command.text.trim() || command.text.length > 5000)
         throw new Error("Messages must be between 1 and 5,000 characters.");
@@ -161,6 +183,7 @@ export function applyCommand(
       notify(
         actor.id === t.clientId ? t.assigneeId : t.clientId,
         `New message on ${t.title}.`,
+        { kind: "conversation", id: t.id },
       );
       break;
     }
@@ -194,7 +217,10 @@ export function applyCommand(
         t,
         `Payment requested: $${command.amount} — ${command.description.trim()}.`,
       );
-      notify(t.clientId, `A payment is ready for ${t.title}.`);
+      notify(t.clientId, `A payment is ready for ${t.title}.`, {
+        kind: "payment",
+        id: s.payments[0].id,
+      });
       log("Created payment tracking", t.id);
       break;
     }
@@ -205,7 +231,10 @@ export function applyCommand(
       if (!staff(t) || p.status !== "Pending")
         throw new Error("Only staff can verify a pending payment request.");
       p.status = "Verified";
-      notify(t.clientId, `Payment verified and ready to pay: ${t.title}.`);
+      notify(t.clientId, `Payment verified and ready to pay: ${t.title}.`, {
+        kind: "payment",
+        id: p.id,
+      });
       log("Verified payment request", t.id);
       break;
     }
@@ -221,9 +250,15 @@ export function applyCommand(
         throw new Error("Only the client can pay an outstanding request.");
       p.status = "Paid";
       p.paidAt = now;
-      notify(t.clientId, `Test payment confirmed: ${t.title}.`);
+      notify(t.clientId, `Test payment confirmed: ${t.title}.`, {
+        kind: "payment",
+        id: p.id,
+      });
       if (t.assigneeId)
-        notify(t.assigneeId, `Payment received for ${t.title}.`);
+        notify(t.assigneeId, `Payment received for ${t.title}.`, {
+          kind: "payment",
+          id: p.id,
+        });
       if (!t.assigneeId) {
         const p = s.profiles
           .filter(
@@ -264,7 +299,10 @@ export function applyCommand(
       t.status = "In review";
       t.deliveredAt = now;
       systemMessage(t, "Your finished work is ready to review.");
-      notify(t.clientId, `${t.title} is ready for your review.`);
+      notify(t.clientId, `${t.title} is ready for your review.`, {
+        kind: "ticket",
+        id: t.id,
+      });
       log("Delivered the output", t.id);
       break;
     }
@@ -294,6 +332,7 @@ export function applyCommand(
         notify(
           t.assigneeId,
           `${actor.name} rated your work ${command.rating}/5.`,
+          { kind: "ticket", id: t.id },
         );
       log("Closed the ticket and left feedback", t.id);
       break;
@@ -364,25 +403,123 @@ export function applyCommand(
         end: end.toISOString(),
         notes: command.notes.trim(),
       });
-      notify(p.id, `New appointment: ${command.title}.`);
+      notify(p.id, `New appointment: ${command.title}.`, {
+        kind: "appointment",
+        id: s.appointments.at(-1)!.id,
+      });
       log("Scheduled an appointment");
       break;
     }
     case "cancelAppointment": {
       const a = s.appointments.find((a) => a.id === command.appointmentId);
-      if (
-        !a ||
-        (actor.id !== a.clientId &&
-          actor.id !== a.staffId &&
-          actor.role !== "admin")
-      )
+      if (!a || (actor.id !== a.clientId && actor.id !== a.staffId))
         throw new Error("Appointment not found.");
+      (s.appointmentHistory ||= []).push({
+        id: uid(),
+        appointmentId: a.id,
+        clientId: a.clientId,
+        staffId: a.staffId,
+        title: a.title,
+        originalStart: a.start,
+        originalEnd: a.end,
+        outcome: "Cancelled",
+        changedAt: now,
+      });
       s.appointments = s.appointments.filter((row) => row.id !== a.id);
       notify(
         actor.id === a.clientId ? a.staffId : a.clientId,
         `Appointment cancelled: ${a.title}.`,
+        { kind: "appointment", id: a.id },
       );
       log("Cancelled an appointment");
+      break;
+    }
+    case "editAppointment": {
+      const a = s.appointments.find(
+        (item) => item.id === command.appointmentId,
+      );
+      if (!a || (actor.id !== a.clientId && actor.id !== a.staffId))
+        throw new Error("Appointment not found.");
+      if (new Date(a.start) <= new Date())
+        throw new Error("Only future appointments can be edited.");
+      if (
+        !command.title.trim() ||
+        command.title.trim().length > 150 ||
+        command.notes.length > 2000
+      )
+        throw new Error(
+          "Add a title up to 150 characters and notes up to 2000 characters.",
+        );
+      a.title = command.title.trim();
+      a.notes = command.notes.trim();
+      notify(
+        actor.id === a.clientId ? a.staffId : a.clientId,
+        "Appointment details were updated.",
+        { kind: "appointment", id: a.id },
+      );
+      log("Updated appointment details");
+      break;
+    }
+    case "rescheduleAppointment": {
+      const a = s.appointments.find(
+        (item) => item.id === command.appointmentId,
+      );
+      if (!a || (actor.id !== a.clientId && actor.id !== a.staffId))
+        throw new Error("Appointment not found.");
+      const start = new Date(command.start),
+        end = new Date(command.end);
+      if (
+        new Date(a.start) <= new Date() ||
+        !Number.isFinite(+start) ||
+        !Number.isFinite(+end) ||
+        start <= new Date() ||
+        end <= start ||
+        +end - +start > 4 * 3600000
+      )
+        throw new Error(
+          "Choose a future appointment lasting up to four hours.",
+        );
+      if (
+        s.appointments.some(
+          (other) =>
+            other.id !== a.id &&
+            (other.staffId === a.staffId || other.clientId === a.clientId) &&
+            command.start < other.end &&
+            command.end > other.start,
+        )
+      )
+        throw new Error("This time overlaps an existing appointment.");
+      (s.appointmentHistory ||= []).push({
+        id: uid(),
+        appointmentId: a.id,
+        clientId: a.clientId,
+        staffId: a.staffId,
+        title: a.title,
+        originalStart: a.start,
+        originalEnd: a.end,
+        outcome: "Rescheduled",
+        changedAt: now,
+      });
+      a.start = start.toISOString();
+      a.end = end.toISOString();
+      notify(
+        actor.id === a.clientId ? a.staffId : a.clientId,
+        "An appointment was rescheduled.",
+        { kind: "appointment", id: a.id },
+      );
+      log("Rescheduled an appointment");
+      break;
+    }
+    case "markNoShow": {
+      const a = s.appointments.find(
+        (item) => item.id === command.appointmentId,
+      );
+      if (!a || (actor.id !== a.clientId && actor.id !== a.staffId))
+        throw new Error("Appointment not found.");
+      if (new Date(a.end) > new Date())
+        throw new Error("Wait until the appointment has ended.");
+      a.status = "No-show";
+      log("Marked an appointment no-show");
       break;
     }
     case "addDocument": {
@@ -391,9 +528,15 @@ export function applyCommand(
         throw new Error("Upload a nonempty file up to 10 MB.");
       if (d.ticketId) {
         const t = ticket(d.ticketId);
-        if (!participant(t) || t.status === "Completed")
+        if (
+          !(t.clientId === actor.id || t.assigneeId === actor.id) ||
+          t.status === "Completed"
+        )
           throw new Error("You cannot upload to this ticket.");
-        if (d.isOutput && !staff(t))
+        if (
+          d.isOutput &&
+          !(actor.role === "staff" && t.assigneeId === actor.id)
+        )
           throw new Error(
             "Only the assigned assistant can upload output files.",
           );
@@ -407,22 +550,19 @@ export function applyCommand(
       const d = s.documents.find((d) => d.id === command.documentId);
       if (
         !d ||
-        actor.role === "client" ||
-        (actor.role === "staff" &&
-          d.ticketId &&
-          ticket(d.ticketId).assigneeId !== actor.id)
+        actor.role !== "staff" ||
+        !d.ticketId ||
+        ticket(d.ticketId).assigneeId !== actor.id
       )
         throw new Error("You cannot review this document.");
       d.reviewed = true;
-      notify(d.ownerId, `${d.name} has been reviewed.`);
+      notify(d.ownerId, `${d.name} has been reviewed.`, {
+        kind: "document",
+        id: d.id,
+      });
       log(`Reviewed ${d.name}`, d.ticketId);
       break;
     }
-    case "readNotifications":
-      s.notifications
-        .filter((n) => n.userId === actor.id)
-        .forEach((n) => (n.read = true));
-      break;
     default:
       throw new Error("Unsupported action.");
   }

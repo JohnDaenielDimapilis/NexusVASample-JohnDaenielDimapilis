@@ -1,8 +1,8 @@
-# Nexus VA — original design cleanup
+# Nexus VA — original design cleanup (historical)
 
 ## Direction
 
-The current request supersedes the previous rebrand. Restore the original Prototype 1 composition and apply the no-ai-design-slop quality gate within that direction. The audience remains clients, virtual assistants, and administrators managing the service-request journey.
+This document records an earlier Prototype 1 design cleanup. The current dashboard layout and brand-post palette are documented in [README.md](README.md). The audience remains clients, virtual assistants, and administrators managing the service-request journey.
 
 The visual thesis is the original compact workspace: a narrow dark-purple navigation rail, a white sidebar, a light canvas, a lavender delivery-review banner, separate summary cards, and dense work tables. Preserve those proportions. Use Montserrat throughout the interface, as requested by the user, with weights distinguishing headings, body text, and controls. Do not substitute the rebrand's wide dark sidebar or flat metric strip.
 

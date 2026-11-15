@@ -11,3 +11,4 @@ test-results/
 backups/
 refs/
 playwright-report/
+.playwright-cli/

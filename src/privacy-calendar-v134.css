@@ -1,0 +1,633 @@
+/* Version 1.3.4: case-based privacy workspace and participant calendar. */
+.privacy-desk {
+  color: #281f37;
+  max-width: 1440px;
+  margin: 0 auto;
+}
+.privacy-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.privacy-heading h1 {
+  margin: 0 0 5px;
+  font-size: clamp(23px, 2vw, 30px);
+  color: #251735;
+}
+.privacy-heading p,
+.privacy-panel > p {
+  margin: 0;
+  color: #655a72;
+  line-height: 1.55;
+  font-size: 14px;
+}
+.privacy-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.4fr);
+  gap: 16px;
+  align-items: start;
+}
+.privacy-panel {
+  min-width: 0;
+  padding: 20px;
+  background: #fff;
+  border: 1px solid #e6def0;
+  border-radius: 14px;
+  box-shadow: 0 3px 16px #26113d08;
+}
+.privacy-panel h2 {
+  margin: 0 0 12px;
+  font-size: 17px;
+  color: #251735;
+}
+.privacy-panel h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: #251735;
+}
+.privacy-panel + .privacy-panel,
+.privacy-grid + .privacy-panel {
+  margin-top: 16px;
+}
+.privacy-grid .privacy-panel + .privacy-panel {
+  margin-top: 0;
+}
+.privacy-panel form {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+}
+.privacy-panel form label,
+.privacy-inline-form > label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #38284d;
+}
+.privacy-panel input,
+.privacy-panel select,
+.privacy-panel textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  padding: 9px 11px;
+  color: #2b1d3e;
+  background: #fff;
+  border: 1px solid #d6cbe4;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 14px;
+}
+.privacy-panel textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+.privacy-panel :is(input, select, textarea, button):focus-visible,
+.privacy-workspace button:focus-visible {
+  outline: 2px solid #8f67d6;
+  outline-offset: 2px;
+}
+.privacy-panel .button {
+  justify-self: start;
+}
+.privacy-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.privacy-case-list {
+  display: grid;
+  gap: 8px;
+  max-height: 560px;
+  overflow-y: auto;
+}
+.privacy-case-list button {
+  width: 100%;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  align-items: center;
+  padding: 13px;
+  text-align: left;
+  border: 1px solid #e8e0ef;
+  border-radius: 9px;
+  background: #fff;
+  color: #30253f;
+  cursor: pointer;
+}
+.privacy-case-list button:hover,
+.privacy-case-list button.selected {
+  background: #f6f0ff;
+  border-color: #a88ed0;
+}
+.privacy-case-list button span:first-child {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+.privacy-case-list strong {
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.privacy-case-list small,
+.privacy-case-head small,
+.privacy-facts dt,
+.privacy-audit-list small {
+  color: #695b79;
+  font-size: 12px;
+}
+.privacy-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 8px;
+  color: #4c3871;
+  background: #efe7fa;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+.privacy-status.approved {
+  color: #275a40;
+  background: #e5f6ea;
+}
+.privacy-status.closed,
+.privacy-status.denied {
+  color: #725351;
+  background: #f8ebe8;
+}
+.privacy-status.emergency {
+  color: #823d22;
+  background: #fff0de;
+}
+.privacy-case-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+}
+.privacy-case-head h2 {
+  margin-bottom: 2px;
+}
+.privacy-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 20px;
+  padding: 16px 0;
+  margin: 14px 0;
+  border-block: 1px solid #eae2f1;
+}
+.privacy-facts div {
+  min-width: 0;
+}
+.privacy-facts dd {
+  margin: 3px 0 0;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  font-weight: 600;
+}
+.privacy-actions {
+  margin: 12px 0;
+}
+.privacy-panel .privacy-inline-form {
+  padding: 15px;
+  background: #faf7fd;
+  border: 1px solid #e9e0f2;
+  border-radius: 10px;
+}
+.privacy-inline-form p {
+  margin: 0;
+  color: #675b74;
+  font-size: 13px;
+}
+.privacy-alert,
+.privacy-state {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  margin: 0 0 16px;
+  border: 1px solid #d6c4eb;
+  border-radius: 9px;
+  color: #493061;
+  background: #f8f2ff;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.privacy-alert svg,
+.privacy-state svg {
+  flex: 0 0 18px;
+}
+.privacy-alert.success {
+  border-color: #b7dfca;
+  color: #225a3b;
+  background: #eff9f2;
+}
+.privacy-alert.error-banner {
+  justify-content: space-between;
+}
+.privacy-state {
+  min-height: 90px;
+  margin: 0;
+}
+.privacy-empty {
+  color: #695b79;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.privacy-results article,
+.privacy-audit-list > div {
+  padding: 13px 0;
+  border-top: 1px solid #ebe4f1;
+}
+.privacy-results article:first-of-type,
+.privacy-audit-list > div:first-child {
+  border-top: 0;
+}
+.privacy-results article p,
+.privacy-audit-list p {
+  margin: 6px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  line-height: 1.55;
+}
+.privacy-results article small {
+  display: block;
+  color: #675b74;
+  font-size: 12px;
+}
+.privacy-audit-list > div {
+  display: grid;
+  gap: 4px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.privacy-audit-list p,
+.privacy-audit-list small {
+  grid-column: 1 / -1;
+}
+.privacy-audit-list details {
+  grid-column: 1 / -1;
+  color: #5a4a6e;
+  font-size: 12px;
+}
+.privacy-audit-list summary {
+  cursor: pointer;
+}
+.privacy-audit-list details small {
+  display: block;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+}
+.privacy-audit-list + .button {
+  margin-top: 16px;
+}
+.privacy-new-case {
+  margin-top: 16px;
+}
+.privacy-workspace {
+  min-height: 100vh;
+  background: #f7f3fb;
+}
+.privacy-workspace > header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 16px clamp(16px, 4vw, 40px);
+  background: #1b122c;
+  color: #fff;
+}
+.privacy-workspace > header img {
+  width: 150px;
+  max-height: 38px;
+  object-fit: contain;
+  object-position: left;
+}
+.privacy-workspace > header span {
+  text-transform: capitalize;
+  color: #d8cbea;
+  font-size: 13px;
+}
+.privacy-workspace > header button {
+  margin-left: auto;
+  min-height: 40px;
+  padding: 0 12px;
+  background: #31223f;
+  border: 1px solid #634b7a;
+  color: #fff;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.privacy-workspace > nav {
+  display: flex;
+  gap: 6px;
+  padding: 10px clamp(16px, 4vw, 40px);
+  overflow-x: auto;
+  background: #271a39;
+}
+.privacy-workspace > nav button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 7px 12px;
+  white-space: nowrap;
+  color: #e5d9f2;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+}
+.privacy-workspace > nav button.active {
+  background: #7049aa;
+  color: #fff;
+}
+.privacy-workspace main {
+  padding: 26px clamp(16px, 4vw, 40px);
+}
+.privacy-workspace footer {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 18px clamp(16px, 4vw, 40px);
+  color: #695b79;
+  font-size: 12px;
+}
+
+.nexus-calendar {
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 300px);
+  gap: 14px;
+  align-items: start;
+}
+.nexus-calendar .calendar-panel,
+.nexus-calendar .calendar-upcoming {
+  min-width: 0;
+  padding: 18px;
+  background: #211a31;
+  color: #f7f2ff;
+  border: 1px solid #473a5b;
+  border-radius: 16px;
+  box-shadow: none;
+}
+.nexus-calendar .calendar-intro {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+.nexus-calendar .calendar-intro span,
+.nexus-calendar .calendar-day-label {
+  display: block;
+  color: #cbb9e4;
+  font-size: 12px;
+}
+.nexus-calendar .calendar-intro h2 {
+  margin: 3px 0 0;
+  color: #fff;
+  font-size: 20px;
+}
+.nexus-calendar .calendar-intro p {
+  margin: 0;
+  color: #c9bbd8;
+  font-size: 12px;
+  text-align: right;
+}
+.nexus-calendar .fc {
+  --fc-border-color: #4b3e5e;
+  --fc-today-bg-color: #403050;
+  --fc-neutral-bg-color: #2e243d;
+  --fc-page-bg-color: #211a31;
+  color: #eee7f8;
+  font-size: 13px;
+}
+.nexus-calendar .fc .fc-toolbar {
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.nexus-calendar .fc .fc-toolbar-title {
+  color: #fff;
+  font-size: 17px;
+  font-weight: 700;
+}
+.nexus-calendar .fc .fc-button {
+  min-height: 34px;
+  padding: 5px 9px;
+  border: 1px solid #635276;
+  background: #302640;
+  color: #eee3f6;
+  font-size: 12px;
+}
+.nexus-calendar .fc .fc-button:hover,
+.nexus-calendar .fc .fc-button-primary:not(:disabled).fc-button-active {
+  background: #7653b4;
+  border-color: #a48acb;
+  color: #fff;
+}
+.nexus-calendar .fc .fc-col-header-cell {
+  background: #2b2239;
+  color: #d3c5e3;
+  font-size: 12px;
+  font-weight: 600;
+}
+.nexus-calendar .fc .fc-daygrid-day-number {
+  color: #e7ddf2;
+  font-size: 13px;
+}
+.nexus-calendar .fc .fc-daygrid-day-frame {
+  min-height: 92px;
+}
+.nexus-calendar .fc .fc-day-other {
+  background: #1d172a;
+}
+.nexus-calendar .fc .fc-day-other .fc-daygrid-day-number {
+  color: #9a8ea7;
+}
+.nexus-calendar .fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number {
+  color: #fff;
+  background: #7653b4;
+  border-radius: 6px;
+}
+.nexus-calendar .fc .fc-event {
+  padding: 3px 5px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.nexus-calendar .fc .fc-daygrid-dot-event {
+  background: #6f54ac;
+}
+.nexus-calendar .fc .fc-event-time {
+  display: inline;
+}
+.nexus-calendar .fc .fc-daygrid-event .fc-event-time {
+  display: none;
+}
+.nexus-calendar .fc .fc-event-title,
+.nexus-calendar .fc .fc-event-time {
+  color: #fff;
+}
+.nexus-calendar .fc .fc-scrollgrid {
+  border: 1px solid #514363;
+  border-radius: 9px;
+}
+.nexus-calendar .fc .fc-timegrid-slot-label,
+.nexus-calendar .fc .fc-timegrid-axis {
+  color: #c8b9d9;
+}
+.nexus-calendar .fc .fc-more-link {
+  color: #d8c3ff;
+}
+.nexus-calendar .calendar-upcoming .panel-head {
+  align-items: flex-start;
+  margin-bottom: 14px;
+}
+.nexus-calendar .calendar-upcoming .panel-head h2 {
+  margin: 4px 0 3px;
+  color: #fff;
+  font-size: 20px;
+}
+.nexus-calendar .calendar-upcoming .panel-head p {
+  color: #c9bbd8;
+  font-size: 12px;
+}
+.nexus-calendar .calendar-upcoming .panel-head svg {
+  color: #ccb2f2;
+}
+.nexus-calendar .calendar-upcoming .appointment-row {
+  border-top: 1px solid #4b3e5e;
+  border-bottom: 0;
+  padding: 13px 0;
+}
+.nexus-calendar .calendar-upcoming .appointment-info > strong {
+  color: #fff;
+  font-size: 13px;
+}
+.nexus-calendar .calendar-upcoming .appointment-info span,
+.nexus-calendar .calendar-upcoming .appointment-info small {
+  color: #c9bbd8;
+  font-size: 12px;
+}
+.nexus-calendar .calendar-upcoming .date-tile {
+  background: #372a4a;
+  color: #e5d8f5;
+}
+.nexus-calendar .calendar-upcoming .date-tile strong {
+  color: #fff;
+}
+.nexus-calendar .calendar-upcoming .icon-button {
+  color: #e4d3fa;
+}
+.nexus-calendar .calendar-upcoming .empty {
+  min-height: 130px;
+  padding: 20px 8px;
+  color: #d8cbeb;
+}
+.nexus-calendar .calendar-upcoming .empty h3 {
+  color: #fff;
+}
+.nexus-calendar .calendar-upcoming .empty p {
+  color: #d8cbeb;
+  line-height: 1.5;
+}
+.nexus-calendar .calendar-upcoming .empty-icon {
+  background: #392d4c;
+  color: #dbc8ef;
+}
+.nexus-calendar .calendar-next {
+  margin-top: 14px;
+  padding-top: 15px;
+  border-top: 1px solid #594b6a;
+}
+.nexus-calendar .calendar-next h3 {
+  margin: 0 0 6px;
+  color: #eee4fa;
+  font-size: 13px;
+}
+.nexus-calendar .calendar-note {
+  background: #2d243c;
+  border-top: 1px solid #564969;
+  color: #d9cbe8;
+  padding: 12px;
+  border-radius: 8px;
+}
+.nexus-calendar .calendar-note p {
+  color: #d9cbe8;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.calendar-outcome {
+  color: #8d5ac0;
+  font-weight: 700;
+}
+.nexus-calendar .calendar-status {
+  color: #f1c6d9;
+  font-weight: 700;
+}
+@media (max-width: 1050px) {
+  .nexus-calendar {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 700px) {
+  .privacy-grid,
+  .privacy-form-grid,
+  .privacy-facts {
+    grid-template-columns: 1fr;
+  }
+  .privacy-heading {
+    flex-wrap: wrap;
+  }
+  .nexus-calendar .calendar-intro {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .nexus-calendar .calendar-intro p {
+    text-align: left;
+  }
+}
+@media (max-width: 600px) {
+  .nexus-calendar .calendar-panel,
+  .nexus-calendar .calendar-upcoming {
+    padding: 12px;
+  }
+  .nexus-calendar .fc .fc-toolbar {
+    display: grid;
+    grid-template-columns: 1fr auto;
+  }
+  .nexus-calendar .fc .fc-toolbar-chunk:nth-child(2) {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+  .nexus-calendar .fc .fc-toolbar-title {
+    font-size: 15px;
+  }
+  .nexus-calendar .fc .fc-button {
+    font-size: 11px;
+    padding: 5px 6px;
+  }
+  .nexus-calendar .fc .fc-daygrid-day-frame {
+    min-height: 70px;
+  }
+  .nexus-calendar .fc .fc-daygrid-day-number {
+    padding: 5px;
+    font-size: 11px;
+  }
+  .nexus-calendar .fc .fc-event {
+    font-size: 10px;
+    padding: 2px;
+  }
+  .privacy-panel {
+    padding: 14px;
+  }
+  .privacy-workspace > header img {
+    width: 110px;
+  }
+}

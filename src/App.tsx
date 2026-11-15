@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowDownLeft,
   ArrowRight,
   ArrowUpRight,
-  Bell,
   BriefcaseBusiness,
   CalendarDays,
   Check,
@@ -13,18 +11,26 @@ import {
   CircleCheck,
   CircleHelp,
   Clock3,
+  Timer,
   CreditCard,
   Download,
+  FileLock2,
   ExternalLink,
   FileCheck2,
   FileText,
   FolderOpen,
   LayoutDashboard,
+  Columns3,
+  ContactRound,
+  Layers3,
+  LockKeyhole,
   LogOut,
   Menu,
   MessageSquare,
   Plus,
   Search,
+  History,
+  ScrollText,
   Send,
   Settings2,
   ShieldCheck,
@@ -33,7 +39,6 @@ import {
   Upload,
   Users,
   Video,
-  Wallet,
   X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -43,6 +48,19 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import type { ColumnDef } from "@tanstack/react-table";
 import Auth from "./Auth";
+import { NotificationCenter } from "./NotificationCenter";
+import { ownedNotifications, updateNotifications } from "./notifications";
+import type { NotificationCommand, NotificationDestination } from "./notifications";
+import { OwnerDashboard } from "./OwnerDashboard";
+import { RoleDashboard } from "./RoleDashboard";
+import { WorkBoard, ClientDirectory, ServiceTemplates } from "./OperationsWorkspace";
+import { requestTemplates } from "./operations";
+import { useTimeTracking } from "./use-time-tracking";
+import { ClockWidget, TimeWorkspace } from "./TimeWorkspace";
+import { AppearanceSwitch } from "./AppearanceSwitch";
+import { initialAppearance, saveAppearance, savedAppearance, systemAppearance } from "./appearance";
+import type { Appearance } from "./appearance";
+import { PrivacyDesk, PrivacyWorkspace } from "./PrivacyDesk";
 import { brand, companyName } from "./brand-config";
 import {
   buildLabel,
@@ -80,44 +98,79 @@ import type { Identity } from "./data";
 import { categories, difficulties, money, paymentSummary } from "./types";
 import type {
   Appointment,
+  Audit,
   Command,
   Difficulty,
   Document,
-  Role,
+  Payment,
   Ticket,
   Workspace,
 } from "./types";
 
 type Page =
   | "Overview"
-  | "Job services"
+  | "Work board"
+  | "Clients"
+  | "Request templates"
+  | "Time & attendance"
+  | "Requests"
+  | "Assistants"
   | "Appointments"
   | "Messages"
   | "Billing"
   | "Files & documents"
   | "Tools & software"
   | "Profile"
-  | "Activity logs";
+  | "Activity logs"
+  | "Conversation Review"
+  | "Schedule History"
+  | "Administrative Audit Logs";
 type Dialog = {
   type:
     | "request"
     | "ticket"
     | "appointment"
+    | "reschedule"
+    | "editAppointment"
+    | "report"
     | "payment"
     | "pay"
     | "feedback"
     | "help"
-    | "cancel";
+    | "cancel"
+    | "assistant"
+    | "confirmCancel";
   id?: string;
   date?: string;
+  staffId?: string;
+  templateId?: string;
 } | null;
+const serviceVisuals: Record<string, string> = {
+  "Administrative support": "/service-visuals/administrative.svg",
+  "Content & marketing": "/service-visuals/marketing.svg",
+  "Design & creative": "/service-visuals/design.svg",
+  "Customer support": "/service-visuals/support.svg",
+  "Research & data": "/service-visuals/research.svg",
+  "Web & technology": "/service-visuals/workspace.svg",
+};
+const serviceVisual = (category?: string) =>
+  serviceVisuals[category || ""] || serviceVisuals["Web & technology"];
 const nav: { page: Page; icon: LucideIcon }[] = [
   { page: "Overview", icon: LayoutDashboard },
-  { page: "Job services", icon: BriefcaseBusiness },
+  { page: "Work board", icon: Columns3 },
+  { page: "Clients", icon: ContactRound },
+  { page: "Request templates", icon: Layers3 },
+  { page: "Time & attendance", icon: Timer },
+  { page: "Requests", icon: BriefcaseBusiness },
+  { page: "Assistants", icon: Users },
   { page: "Appointments", icon: CalendarDays },
   { page: "Messages", icon: MessageSquare },
   { page: "Billing", icon: CreditCard },
   { page: "Files & documents", icon: FolderOpen },
+  { page: "Activity logs", icon: ShieldCheck },
+  { page: "Conversation Review", icon: FileLock2 },
+  { page: "Schedule History", icon: History },
+  { page: "Administrative Audit Logs", icon: ScrollText },
 ];
 const dateText = (
   date: string,
@@ -137,6 +190,7 @@ const dateInput = (date = new Date()) =>
 const str = (form: FormData, key: string) => String(form.get(key) || "");
 
 export default function App() {
+  const [appearance, setAppearance] = useState<Appearance>(initialAppearance);
   const [identity, setIdentity] = useState<Identity | null>(getDemoIdentity);
   const [state, setState] = useState<Workspace | null>(null);
   const [page, setPage] = useState<Page>("Overview");
@@ -147,23 +201,78 @@ export default function App() {
   const [toast, setToast] = useState<{ text: string; error: boolean } | null>(
     null,
   );
+  const [toastPaused, setToastPaused] = useState(false);
+  const [actionError, setActionError] = useState("");
   const [notifications, setNotifications] = useState(false);
   const [accountMenu, setAccountMenu] = useState(false);
   const [mobile, setMobile] = useState(false);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("All requests");
+  const [assigneeFilter, setAssigneeFilter] = useState<string | null>(null);
+  const [assistantSearch, setAssistantSearch] = useState("");
+  const [assistantCategory, setAssistantCategory] = useState("All services");
+  const [assistantAvailability, setAssistantAvailability] =
+    useState("All assistants");
+  const adminRange = 30;
+  const [createdWindow, setCreatedWindow] = useState<{
+    start: string;
+    end: string;
+    label: string;
+  } | null>(null);
+  const [selectedRequestIds, setSelectedRequestIds] = useState<string[]>([]);
   const [conversation, setConversation] = useState<string | null>(null);
+  const [calendarDate, setCalendarDate] = useState(dateInput());
+  const toggleAppearance = () => {
+    const next = appearance === "dark" ? "light" : "dark";
+    saveAppearance(next);
+    setAppearance(next);
+  };
+  useEffect(() => {
+    document.documentElement.dataset.appearance = appearance;
+    document.documentElement.style.colorScheme = appearance;
+    document.querySelector('meta[name="theme-color"]')?.setAttribute(
+      "content",
+      appearance === "dark" ? "#15101F" : "#2D1B61",
+    );
+  }, [appearance]);
+  useEffect(() => {
+    const media = window.matchMedia?.("(prefers-color-scheme: dark)");
+    if (!media) return;
+    const onSystemChange = () => {
+      if (!savedAppearance()) setAppearance(systemAppearance());
+    };
+    media.addEventListener("change", onSystemChange);
+    return () => media.removeEventListener("change", onSystemChange);
+  }, []);
   const chatBottom = useRef<HTMLDivElement>(null);
+  const lastMessageCount = useRef<number | null>(null);
   const lock = useRef(false);
+  const notificationRevision = useRef(0);
+  const notificationPending = useRef(false);
+  const notificationRefreshQueued = useRef(false);
+  const notificationIdentity = useRef(identity?.id);
+  notificationIdentity.current = identity?.id;
   const showToast = useCallback(
-    (text: string, error = false) => setToast({ text, error }),
+    (text: string, error = false) => { setToastPaused(false); setToast({ text, error }); },
     [],
   );
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async function refreshWorkspace() {
+    const revision = notificationRevision.current;
+    const actorId = notificationIdentity.current;
     try {
-      setState(await loadWorkspace());
+      const next = await loadWorkspace();
+      if (actorId !== notificationIdentity.current) return;
+      const staleNotifications = notificationPending.current || revision !== notificationRevision.current;
+      setState(current => current && staleNotifications ? {...next,notifications:current.notifications} : next);
+      // Preserve optimistic status while saving, then reconcile any incoming
+      // records skipped by a refresh that crossed the notification change.
+      if (staleNotifications) {
+        if (notificationPending.current) notificationRefreshQueued.current = true;
+        else void refreshWorkspace();
+      }
       setLoadError("");
     } catch (e) {
+      if (actorId !== notificationIdentity.current) return;
       setLoadError(
         e instanceof Error ? e.message : "Could not load your workspace.",
       );
@@ -213,15 +322,21 @@ export default function App() {
     });
   }, [identity, refresh]);
   useEffect(() => {
-    if (!toast) return;
-    const timer = setTimeout(() => setToast(null), 5500);
+    if (!toast || toastPaused) return;
+    const timer = setTimeout(() => setToast(null), toast.error ? 9000 : 5500);
     return () => clearTimeout(timer);
-  }, [toast]);
+  }, [toast, toastPaused]);
+  useEffect(() => {
+    setActionError("");
+  }, [dialog]);
+  useEffect(() => {
+    setSelectedRequestIds([]);
+  }, [filter, search, assigneeFilter, createdWindow, page, identity?.id]);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
-        setPage("Job services");
+        setPage("Requests");
         setTimeout(
           () =>
             document
@@ -254,12 +369,23 @@ export default function App() {
     };
   }, []);
   useEffect(() => {
-    chatBottom.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "nearest",
-    });
-  }, [conversation, state?.messages.length]);
+    const count = state?.messages.length ?? 0;
+    const hasNewMessage =
+      lastMessageCount.current !== null && count > lastMessageCount.current;
+    lastMessageCount.current = count;
+    const chatBody = chatBottom.current?.closest<HTMLElement>(".chat-body");
+    if (!chatBody) return;
+    if (getComputedStyle(chatBody).overflowY !== "visible") {
+      chatBody.scrollTo({ top: chatBody.scrollHeight, behavior: "smooth" });
+    } else if (hasNewMessage && page === "Messages") {
+      chatBottom.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+      });
+    }
+  }, [conversation, page, state?.messages.length]);
   const actor = state?.profiles.find((p) => p.id === identity?.id);
+  const tracking = useTimeTracking(actor, state, showToast);
   const mine = useMemo(
     () =>
       state?.tickets.filter(
@@ -275,18 +401,19 @@ export default function App() {
     state?.appointments
       .filter(
         (a) =>
-          actor?.role === "admin" ||
-          a.clientId === actor?.id ||
-          a.staffId === actor?.id,
+          (actor?.role === "client" && a.clientId === actor.id) ||
+          (actor?.role === "staff" && a.staffId === actor.id),
       )
       .sort((a, b) => a.start.localeCompare(b.start)) || [];
   const upcoming = myAppointments.filter((a) => new Date(a.end) > new Date());
-  const myNotes =
-    state?.notifications.filter((n) => n.userId === actor?.id) || [];
-  const unread = myNotes.filter((n) => !n.read).length;
+  const selectedAppointments = myAppointments.filter(
+    (a) => dateInput(new Date(a.start)) === calendarDate,
+  );
+  const myNotes = state && actor ? ownedNotifications(state.notifications, actor.id) : [];
   const messageUnread = myNotes.filter(
     (n) => !n.read && /message/i.test(n.text),
   ).length;
+  useEffect(() => { setActionError(""); }, [dialog?.type, dialog?.id]);
   const closeDialog = useCallback(() => {
     if (!lock.current) setDialog(null);
   }, []);
@@ -294,18 +421,16 @@ export default function App() {
     if (!actor || lock.current) return false;
     lock.current = true;
     setBusy(true);
+    setActionError("");
     try {
       setState(await runCommand(actor.id, command));
       showToast(success);
       if (close) setDialog(null);
       return true;
     } catch (e) {
-      showToast(
-        e instanceof Error
-          ? e.message
-          : "Something went wrong. Please try again.",
-        true,
-      );
+      const message = e instanceof Error ? e.message : "Something went wrong. Please try again.";
+      setActionError(message);
+      showToast(message, true);
       return false;
     } finally {
       lock.current = false;
@@ -322,13 +447,16 @@ export default function App() {
     setBusy(true);
     try {
       setState(await uploadFile(file, actor, ticketId, isOutput));
+      setActionError("");
       showToast(
         isOutput
           ? "Output uploaded. You can now deliver the work."
           : "File uploaded successfully.",
       );
     } catch (e) {
-      showToast(e instanceof Error ? e.message : "Upload failed.", true);
+      const message = e instanceof Error ? e.message : "Upload failed.";
+      setActionError(message);
+      showToast(message, true);
     } finally {
       lock.current = false;
       setBusy(false);
@@ -343,19 +471,96 @@ export default function App() {
     }
   };
   const navigate = (next: Page) => {
+    if (
+      actor?.role === "admin" &&
+      (next === "Messages" || next === "Appointments")
+    )
+      next = "Conversation Review";
+    setDialog(null);
+    setActionError("");
     setPage(next);
     setSearch("");
+    setAssigneeFilter(null);
+    setCreatedWindow(null);
     setMobile(false);
     setNotifications(false);
     setAccountMenu(false);
-    window.scrollTo({ top: 0 });
+    document
+      .querySelector<HTMLElement>(".workspace-main")
+      ?.scrollTo({ top: 0 });
   };
   const person = (id: string | null | undefined) =>
     state?.profiles.find((p) => p.id === id);
   const openConversation = (id: string) => {
+    if (actor?.role !== "client" && actor?.role !== "staff") {
+      navigate("Conversation Review");
+      return;
+    }
     setConversation(id);
     navigate("Messages");
     setDialog(null);
+  };
+  const updateNotification = async (command: NotificationCommand) => {
+    if (!actor || !state || lock.current) throw new Error("Another action is still saving. Please try again.");
+    const actorId = actor.id;
+    const previousNotes = state.notifications;
+    const affected = new Set(command.type === "readNotifications" ? command.notificationIds || myNotes.map(n=>n.id) : [command.notificationId]);
+    lock.current = true;
+    notificationPending.current = true;
+    notificationRevision.current++;
+    setBusy(true);
+    setState(current => {
+      if (!current) return current;
+      try { return updateNotifications(current, actorId, command); }
+      catch { return current; } // A refresh or account switch may have removed this row.
+    });
+    try {
+      const next = await runCommand(actorId, command);
+      notificationRevision.current++;
+      if (notificationIdentity.current !== actorId) return;
+      setState(next);
+      if (command.type === "dismissNotification") showToast(command.dismissed ? "Notification dismissed." : "Notification restored.");
+      else if (command.type === "readNotifications") showToast("Notifications marked as read.");
+    } catch (e) {
+      notificationRevision.current++;
+      if (notificationIdentity.current !== actorId) return;
+      const before = new Map(previousNotes.map(n=>[n.id,n]));
+      setState(current => current ? {...current,notifications:current.notifications.map(n=>{
+        const old = before.get(n.id);
+        if (n.userId !== actorId || !affected.has(n.id) || !old) return n;
+        return command.type === "dismissNotification" ? {...n,dismissed:old.dismissed} : {...n,read:old.read};
+      })} : current);
+      const message = e instanceof Error ? e.message : "Please try again.";
+      showToast(`Could not confirm notification update. ${message}`,true);
+      void refresh();
+      throw new Error(`Could not confirm notification update. ${message}`);
+    } finally {
+      notificationPending.current = false;
+      lock.current = false;
+      setBusy(false);
+      if (notificationRefreshQueued.current) {
+        notificationRefreshQueued.current = false;
+        void refresh();
+      }
+    }
+  };
+  const openNotificationDestination = (destination: Exclude<NotificationDestination,{type:"details"}>) => {
+    if (destination.type === "conversation") openConversation(destination.id);
+    else if (destination.type === "ticket") {
+      navigate("Requests");
+      setFilter("All requests");
+      setDialog({type:"ticket",id:destination.id});
+    } else if (destination.type === "appointment") {
+      const appointment = state?.appointments.find(a=>a.id===destination.id);
+      if (!appointment) { showToast("This appointment is no longer available.",true); return; }
+      navigate("Appointments");
+      setCalendarDate(dateInput(new Date(appointment.start)));
+      setDialog({type:"cancel",id:appointment.id});
+    } else if (destination.type === "page") {
+      navigate(destination.page);
+      if (destination.page === "Requests") setFilter(destination.available ? "Available" : "All requests");
+      if (destination.search) setSearch(destination.search);
+    }
   };
   const signout = async () => {
     try {
@@ -381,6 +586,8 @@ export default function App() {
     return (
       <>
         <Auth
+          appearance={appearance}
+          onToggleAppearance={toggleAppearance}
           onLogin={(id) => {
             setIdentity(id);
             setLoadError("");
@@ -418,16 +625,73 @@ export default function App() {
         )}
       </div>
     );
-  const active = mine.filter((t) => t.status === "In progress");
-  const review = mine.filter((t) => t.status === "In review");
-  const completed = mine.filter((t) => t.status === "Completed");
+  if (
+    actor.role === "support_reviewer" ||
+    actor.role === "privacy_officer" ||
+    actor.role === "super_admin"
+  )
+    return (
+      <PrivacyWorkspace
+        actor={actor}
+        profiles={state.profiles}
+        tickets={state.tickets}
+        appearance={appearance}
+        onToggleAppearance={toggleAppearance}
+        onSignout={() => void signout()}
+      />
+    );
+  const overviewTickets =
+    actor.role === "staff"
+      ? mine.filter((ticket) => ticket.assigneeId === actor.id)
+      : mine;
   const totalPaid = state.payments
     .filter((p) => p.status === "Paid" && mine.some((t) => t.id === p.ticketId))
     .reduce((sum, p) => sum + p.amount, 0);
+  const outstandingTotal = state.payments
+    .filter(
+      (payment) =>
+        payment.status !== "Paid" &&
+        mine.some((ticket) => ticket.id === payment.ticketId),
+    )
+    .reduce((sum, payment) => sum + payment.amount, 0);
+  const analyticsStart = new Date();
+  analyticsStart.setHours(0, 0, 0, 0);
+  analyticsStart.setDate(analyticsStart.getDate() - adminRange + 1);
+  const availableAssistants = state.profiles.filter(
+    (profile) =>
+      profile.role === "staff" &&
+      profile.status === "Active" &&
+      (assistantAvailability === "All assistants" || profile.available) &&
+      (assistantCategory === "All services" ||
+        profile.skills.includes(assistantCategory)) &&
+      `${profile.name} ${profile.bio} ${profile.skills.join(" ")}`
+        .toLowerCase()
+        .includes(assistantSearch.toLowerCase()),
+  );
+  const paymentRequestCount = state.payments.filter((payment) =>
+    mine.some((ticket) => ticket.id === payment.ticketId),
+  ).length;
+  const requestStatusCount = (paid: boolean, delivered: boolean) =>
+    mine.filter(
+      (ticket) =>
+        (paymentSummary(state, ticket.id) === "Paid") === paid &&
+        !!ticket.deliveredAt === delivered,
+    ).length;
   const currentChat =
     mine.find((t) => t.id === conversation && t.assigneeId) ||
     mine.find((t) => t.assigneeId);
-  const filtered = mine.filter(
+  const assignedRequestScope =
+    actor.role === "admin" && assigneeFilter
+      ? mine.filter((ticket) => ticket.assigneeId === assigneeFilter)
+      : mine;
+  const requestScope = createdWindow
+    ? assignedRequestScope.filter(
+        (ticket) =>
+          new Date(ticket.createdAt) >= new Date(createdWindow.start) &&
+          new Date(ticket.createdAt) < new Date(createdWindow.end),
+      )
+    : assignedRequestScope;
+  const filtered = requestScope.filter(
     (t) =>
       (filter === "All requests" ||
         t.status === filter ||
@@ -436,13 +700,61 @@ export default function App() {
         .toLowerCase()
         .includes(search.toLowerCase()),
   );
+  const selectedVisibleRequests = filtered.filter((ticket) =>
+    selectedRequestIds.includes(ticket.id),
+  );
+  const toggleRequestSelection = (id: string) =>
+    setSelectedRequestIds((current) =>
+      current.includes(id)
+        ? current.filter((selectedId) => selectedId !== id)
+        : [...current, id],
+    );
+  const exportSelectedRequests = () => {
+    if (!selectedVisibleRequests.length) return;
+    const csvCell = (value: string | number) => {
+      const raw = String(value);
+      const safe =
+        typeof value === "string" && /^\s*[=+\-@]/.test(raw) ? `'${raw}` : raw;
+      return `"${safe.replaceAll('"', '""')}"`;
+    };
+    const rows = [
+      [
+        "Request number",
+        "Request",
+        "Client",
+        "Assistant",
+        "Status",
+        "Due date",
+        "Budget",
+      ],
+      ...selectedVisibleRequests.map((ticket) => [
+        `NX-${ticket.number}`,
+        ticket.title,
+        person(ticket.clientId)?.name || "",
+        person(ticket.assigneeId)?.name || "Unassigned",
+        ticket.status,
+        ticket.dueDate,
+        ticket.budget,
+      ]),
+    ];
+    const blob = new Blob(
+      ["\uFEFF", rows.map((row) => row.map(csvCell).join(",")).join("\r\n")],
+      { type: "text/csv;charset=utf-8" },
+    );
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "nexus-requests.csv";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showToast(
+      `${selectedVisibleRequests.length} request summaries downloaded.`,
+    );
+  };
   const titleCell = (t: Ticket) => (
     <div className="project-cell">
-      <span
-        className={`project-icon category-${categories.indexOf(t.category) % 5}`}
-      >
-        <BriefcaseBusiness size={17} />
-      </span>
       <span>
         <button
           className="table-title"
@@ -460,9 +772,43 @@ export default function App() {
     </div>
   );
   const columns: ColumnDef<Ticket, unknown>[] = [
+    ...(actor.role === "admin" && page === "Requests"
+      ? [
+          {
+            id: "select",
+            header: () => (
+              <input
+                type="checkbox"
+                aria-label="Select all filtered requests"
+                checked={
+                  filtered.length > 0 &&
+                  selectedVisibleRequests.length === filtered.length
+                }
+                onChange={(event) =>
+                  setSelectedRequestIds(
+                    event.target.checked
+                      ? filtered.map((ticket) => ticket.id)
+                      : [],
+                  )
+                }
+              />
+            ),
+            enableSorting: false,
+            cell: ({ row }: { row: { original: Ticket } }) => (
+              <input
+                type="checkbox"
+                aria-label={`Select ${row.original.title}`}
+                checked={selectedRequestIds.includes(row.original.id)}
+                onClick={(event) => event.stopPropagation()}
+                onChange={() => toggleRequestSelection(row.original.id)}
+              />
+            ),
+          },
+        ]
+      : []),
     {
       accessorKey: "title",
-      header: "Project",
+      header: "Request",
       cell: ({ row }) => titleCell(row.original),
     },
     {
@@ -496,7 +842,7 @@ export default function App() {
       header: "Status",
       cell: ({ row }) => <Badge>{row.original.status}</Badge>,
     },
-    ...(page === "Job services"
+    ...(page === "Requests"
       ? [
           {
             accessorKey: "budget",
@@ -511,19 +857,196 @@ export default function App() {
             enableSorting: false,
             cell: ({ row }: { row: { original: Ticket } }) => (
               <button
-                className="icon-button"
-                aria-label={`Open ${row.original.title}`}
-                onClick={() =>
-                  setDialog({ type: "ticket", id: row.original.id })
-                }
+                className="button secondary compact view-request-button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setDialog({ type: "ticket", id: row.original.id });
+                }}
               >
-                <ArrowUpRight size={16} />
+                View request
               </button>
             ),
           },
         ]
       : []),
   ];
+  const requestCard = (ticket: Ticket) => (
+    <>
+      <div className="mobile-request-heading">
+        {actor.role === "admin" && page === "Requests" && (
+          <input
+            type="checkbox"
+            aria-label={`Select ${ticket.title}`}
+            checked={selectedRequestIds.includes(ticket.id)}
+            onChange={() => toggleRequestSelection(ticket.id)}
+          />
+        )}
+        <div>
+          <strong>{ticket.title}</strong>
+          <small>
+            NX-{ticket.number} · {ticket.category}
+          </small>
+          {actor.role === "staff" && (
+            <small>
+              Client:{" "}
+              {person(ticket.clientId)?.company ||
+                person(ticket.clientId)?.name ||
+                "Client"}
+            </small>
+          )}
+        </div>
+        <Badge>{ticket.status}</Badge>
+      </div>
+      <dl className="mobile-request-facts">
+        <div>
+          <dt>Due date</dt>
+          <dd>{dateText(ticket.dueDate)}</dd>
+        </div>
+        <div>
+          <dt>Budget</dt>
+          <dd>{money(ticket.budget)}</dd>
+        </div>
+      </dl>
+      <button
+        className="button secondary compact view-request-button"
+        onClick={() => setDialog({ type: "ticket", id: ticket.id })}
+      >
+        View request
+      </button>
+    </>
+  );
+  const paymentAction = (payment: Payment, showPaidLabel = true) => {
+    if (payment.status === "Paid")
+      return showPaidLabel ? (
+        <span className="paid-label">
+          <CheckCheck size={14} /> Paid{" "}
+          {payment.paidAt && dateText(payment.paidAt)}
+        </span>
+      ) : null;
+    if (actor.role === "client")
+      return (
+        <button
+          className="button primary compact"
+          onClick={() => setDialog({ type: "pay", id: payment.id })}
+        >
+          Pay in test mode
+        </button>
+      );
+    if (payment.status === "Pending")
+      return (
+        <button
+          className="button secondary compact"
+          disabled={busy}
+          onClick={() =>
+            void perform(
+              { type: "verifyPayment", paymentId: payment.id },
+              "Payment request verified.",
+              false,
+            )
+          }
+        >
+          Verify request
+        </button>
+      );
+    return <span className="muted">Awaiting client</span>;
+  };
+  const paymentCard = (payment: Payment) => {
+    const ticket = mine.find((item) => item.id === payment.ticketId);
+    const action = paymentAction(payment, false);
+    return (
+      <>
+        <div className="mobile-request-heading">
+          <div>
+            <strong>{payment.description}</strong>
+            <small>
+              {ticket ? `NX-${ticket.number} · ` : ""}
+              {dateText(payment.createdAt)}
+            </small>
+          </div>
+          <Badge>{payment.status}</Badge>
+        </div>
+        <dl className="mobile-request-facts">
+          <div>
+            <dt>Amount</dt>
+            <dd>{money(payment.amount)}</dd>
+          </div>
+          {payment.paidAt && (
+            <div>
+              <dt>Paid on</dt>
+              <dd>{dateText(payment.paidAt)}</dd>
+            </div>
+          )}
+        </dl>
+        {action && <div className="mobile-payment-action">{action}</div>}
+      </>
+    );
+  };
+  const oversightCard = (ticket: Ticket) => (
+    <>
+      <div className="mobile-request-heading">
+        <div>
+          <strong>{ticket.title}</strong>
+          <small>
+            NX-{ticket.number} · {ticket.category}
+          </small>
+        </div>
+        <Badge>{ticket.status}</Badge>
+      </div>
+      <dl className="mobile-request-facts mobile-oversight-facts">
+        <div>
+          <dt>Client</dt>
+          <dd>{person(ticket.clientId)?.name || "Client"}</dd>
+        </div>
+        <div>
+          <dt>Payment</dt>
+          <dd>{paymentSummary(state, ticket.id)}</dd>
+        </div>
+        <div>
+          <dt>Output</dt>
+          <dd>{ticket.deliveredAt ? "Delivered" : "Not delivered"}</dd>
+        </div>
+      </dl>
+      <button
+        className="button secondary compact view-request-button"
+        onClick={() => setDialog({ type: "ticket", id: ticket.id })}
+      >
+        View request
+      </button>
+    </>
+  );
+  const auditCard = (entry: Audit) => {
+    const ticket = mine.find((item) => item.id === entry.ticketId);
+    return (
+      <>
+        <div className="mobile-request-heading">
+          <div>
+            <strong>{entry.text}</strong>
+            <small>
+              {dateText(entry.createdAt)} · {timeText(entry.createdAt)}
+            </small>
+          </div>
+        </div>
+        <dl className="mobile-request-facts">
+          <div>
+            <dt>Account</dt>
+            <dd>{person(entry.actorId)?.name || "Team"}</dd>
+          </div>
+          <div>
+            <dt>Request</dt>
+            <dd>{ticket ? `NX-${ticket.number}` : "—"}</dd>
+          </div>
+        </dl>
+        {ticket && (
+          <button
+            className="button secondary compact view-request-button"
+            onClick={() => setDialog({ type: "ticket", id: ticket.id })}
+          >
+            View request
+          </button>
+        )}
+      </>
+    );
+  };
   const requestButton =
     actor.role === "client" ? (
       <button
@@ -537,7 +1060,7 @@ export default function App() {
       <button
         className="button secondary"
         onClick={() =>
-          navigate(actor.role === "admin" ? "Activity logs" : "Job services")
+          navigate(actor.role === "admin" ? "Activity logs" : "Requests")
         }
       >
         {actor.role === "admin" ? "View activity logs" : "Explore requests"}
@@ -581,6 +1104,36 @@ export default function App() {
       )}
     </div>
   );
+  const documentActions = (doc: Document, mobileCard = false) => (
+    <div className={mobileCard ? "file-card-actions" : "row-actions"}>
+      {actor.role !== "client" && !doc.reviewed && (
+        <button
+          className={mobileCard ? "button secondary" : "icon-button"}
+          title="Mark reviewed"
+          aria-label={`Review ${doc.name}`}
+          disabled={busy}
+          onClick={() =>
+            void perform(
+              { type: "reviewDocument", documentId: doc.id },
+              "Document marked as reviewed.",
+              false,
+            )
+          }
+        >
+          <FileCheck2 size={17} />
+          {mobileCard && "Mark reviewed"}
+        </button>
+      )}
+      <button
+        className={mobileCard ? "button secondary" : "icon-button"}
+        aria-label={`Download ${doc.name}`}
+        onClick={() => void download(doc)}
+      >
+        <Download size={17} />
+        {mobileCard && "Download"}
+      </button>
+    </div>
+  );
   const appointmentCard = (a: Appointment) => (
     <div className="appointment-row" key={a.id}>
       <div className="date-tile">
@@ -589,6 +1142,9 @@ export default function App() {
       </div>
       <div className="appointment-info">
         <strong>{a.title}</strong>
+        {a.status === "No-show" && (
+          <span className="calendar-status">No-show</span>
+        )}
         <span>
           <Clock3 size={12} />
           {timeText(a.start)} – {timeText(a.end)}
@@ -607,8 +1163,51 @@ export default function App() {
     </div>
   );
 
+  const sidebarGroups: { label: string; pages: Page[] }[] = [
+    {
+      label: actor.role === "staff" ? "My work" : "Operations",
+      pages: [
+        "Overview",
+        "Work board",
+        "Requests",
+        ...(actor.role === "admin" ? (["Clients"] as Page[]) : []),
+        ...(actor.role === "client" ? (["Request templates"] as Page[]) : []),
+        ...(actor.role === "admin" || actor.role === "staff" ? (["Time & attendance"] as Page[]) : []),
+        ...(actor.role === "client" ? (["Assistants"] as Page[]) : []),
+      ],
+    },
+    {
+      label: "Coordinate",
+      pages:
+        actor.role === "admin"
+          ? []
+          : ["Messages", "Appointments", "Files & documents"],
+    },
+    {
+      label: actor.role === "admin" ? "Manage" : "Account",
+      pages: [
+        "Billing",
+        ...(actor.role === "admin" ? (["Activity logs"] as Page[]) : []),
+      ],
+    },
+    ...(actor.role === "admin"
+      ? [
+          {
+            label: "Privacy oversight",
+            pages: [
+              "Conversation Review",
+              "Schedule History",
+              "Administrative Audit Logs",
+            ] as Page[],
+          },
+        ]
+      : []),
+  ];
+
   return (
-    <div className={`app-shell ${mobile ? "nav-open" : ""}`}>
+    <div
+      className={`app-shell command-v131 scroll-layout-v132 revision-v1341 revision-v1346 ${mobile ? "nav-open" : ""}`}
+    >
       <aside className="rail" aria-label="Quick navigation">
         <a
           className="rail-brand"
@@ -619,35 +1218,43 @@ export default function App() {
             navigate("Overview");
           }}
         >
-          <span aria-hidden="true">N</span>
+          <img src="/nexus-mark.png" alt="" />
         </a>
         <div className="rail-divider" />
-        {nav.map(({ page: next, icon: Icon }) => (
-          <button
-            key={next}
-            className={`rail-link ${page === next ? "selected" : ""}`}
-            aria-label={next}
-            title={next}
-            onClick={() => navigate(next)}
-          >
-            <Icon size={20} />
-          </button>
-        ))}
-        {actor.role === "admin" && (
-          <button
-            className={`rail-link ${page === "Activity logs" ? "selected" : ""}`}
-            title="Activity logs"
-            aria-label="Activity logs"
-            onClick={() => navigate("Activity logs")}
-          >
-            <ShieldCheck size={20} />
-          </button>
-        )}
+        {nav
+          .filter(
+            ({ page: next }) =>
+              (next !== "Assistants" || actor.role === "client") &&
+              (next !== "Clients" || actor.role === "admin") &&
+              (next !== "Request templates" || actor.role === "client") &&
+              (next !== "Time & attendance" || actor.role === "staff" || actor.role === "admin") &&
+              (next !== "Activity logs" || actor.role === "admin") &&
+              (actor.role !== "admin" ||
+                (next !== "Messages" && next !== "Appointments")) &&
+              (actor.role === "admin" ||
+                ![
+                  "Conversation Review",
+                  "Schedule History",
+                  "Administrative Audit Logs",
+                ].includes(next)),
+          )
+          .map(({ page: next, icon: Icon }) => (
+            <button
+              key={next}
+              className={`rail-link ${page === next ? "selected" : ""}`}
+              aria-current={page === next ? "page" : undefined}
+              aria-label={next}
+              title={next}
+              onClick={() => navigate(next)}
+            >
+              <Icon size={20} />
+            </button>
+          ))}
         <div className="rail-bottom">
           <button
             className="rail-link"
             aria-label="Help"
-            onClick={() => setDialog({ type: "help" })}
+            onClick={() => { setMobile(false); setDialog({ type: "help" }); }}
           >
             <CircleHelp size={20} />
           </button>
@@ -666,7 +1273,10 @@ export default function App() {
         aria-label="Workspace navigation"
       >
         <div className="sidebar-brand">
-          Nexus VA
+          <div className="sidebar-logo" aria-label="Nexus Virtual Executives">
+            <img src="/nexus-wordmark-white.png" alt="Nexus" />
+            <span>VIRTUAL EXECUTIVES</span>
+          </div>
           <button
             className="icon-button mobile-close"
             aria-label="Close navigation"
@@ -675,87 +1285,103 @@ export default function App() {
             <X size={18} />
           </button>
         </div>
-        <div className="workspace-chip">
-          <span className="workspace-letter">
-            {actor.company.charAt(0) || "N"}
-          </span>
-          <span>
-            <strong>{companyName(actor.company) || "My workspace"}</strong>
-            <small>
-              {actor.role === "client"
-                ? "Client workspace"
-                : actor.role === "staff"
-                  ? "Assistant workspace"
-                  : "Admin workspace"}
-            </small>
-          </span>
-        </div>
-        <span className="nav-label">WORKSPACE</span>
-        <nav>
-          {nav.map(({ page: next, icon: Icon }) => (
-            <button
-              key={next}
-              className={`nav-link ${page === next ? "active" : ""}`}
-              onClick={() => navigate(next)}
-            >
-              <Icon size={17} />
-              {next}
-              {next === "Messages" && messageUnread > 0 && (
-                <span className="nav-count">{messageUnread}</span>
-              )}
-              {next === "Job services" && (
-                <span className="nav-count neutral">
-                  {mine.filter((t) => t.status !== "Completed").length}
-                </span>
-              )}
-            </button>
-          ))}
-          {actor.role === "admin" && (
-            <button
-              className={`nav-link ${page === "Activity logs" ? "active" : ""}`}
-              onClick={() => navigate("Activity logs")}
-            >
-              <ShieldCheck size={17} />
-              Activity logs
-            </button>
-          )}
-        </nav>
-        <span className="nav-label resources-label">RESOURCES</span>
-        <button
-          className={`nav-link ${page === "Tools & software" ? "active" : ""}`}
-          onClick={() => navigate("Tools & software")}
-        >
-          <Sparkles size={17} />
-          Tools & software
-          <ArrowUpRight className="nav-arrow" size={13} />
-        </button>
-        <div className="sidebar-bottom">
-          <div className="support-card">
-            <strong>Workspace guide</strong>
-            <p>From your first request to final delivery.</p>
-            <button onClick={() => setDialog({ type: "help" })}>
-              View the guide
-              <ArrowUpRight size={13} />
-            </button>
+        <div className="sidebar-scroll-region">
+          <div className="workspace-chip">
+            <span className="workspace-letter">
+              {actor.company.charAt(0) || "N"}
+            </span>
+            <span>
+              <strong>{companyName(actor.company) || "My workspace"}</strong>
+              <small>
+                {actor.role === "client"
+                  ? "Client workspace"
+                  : actor.role === "staff"
+                    ? "Assistant workspace"
+                    : "Admin workspace"}
+              </small>
+            </span>
           </div>
+          <nav aria-label="Main navigation">
+            {sidebarGroups
+              .filter((group) => group.pages.length)
+              .map((group) => (
+                <div className="sidebar-nav-group" key={group.label}>
+                  <span className="nav-label">{group.label}</span>
+                  {group.pages.map((next) => {
+                    const Icon = nav.find((item) => item.page === next)!.icon;
+                    return (
+                      <button
+                        key={next}
+                        className={`nav-link ${page === next ? "active" : ""}`}
+                        aria-current={page === next ? "page" : undefined}
+                        onClick={() => navigate(next)}
+                      >
+                        <Icon size={17} />
+                        {next}
+                        {next === "Messages" && messageUnread > 0 && (
+                          <span className="nav-count">{messageUnread}</span>
+                        )}
+                        {next === "Requests" && (
+                          <span className="nav-count neutral">
+                            {
+                              mine.filter((t) => t.status !== "Completed")
+                                .length
+                            }
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
+          </nav>
+          <span className="nav-label resources-label">Resources</span>
           <button
-            className={`nav-link ${page === "Profile" ? "active" : ""}`}
-            onClick={() => navigate("Profile")}
+            className={`nav-link ${page === "Tools & software" ? "active" : ""}`}
+            onClick={() => navigate("Tools & software")}
           >
-            <Settings2 size={17} />
-            Settings & profile
+            <Sparkles size={17} />
+            Tools & software
+            <ArrowUpRight className="nav-arrow" size={13} />
           </button>
-          <div className="sidebar-foot" title={buildLabel}>
-            <span className="online-dot" />
-            {environmentShortLabel} · {mode === "demo" ? "Demo" : "Connected"}
-            <span>{versionLabel}</span>
+          <button
+            className="nav-link"
+            onClick={() => { setMobile(false); setDialog({ type: "help" }); }}
+          >
+            <CircleHelp size={17} />
+            Workspace guide
+          </button>
+          <a
+            className="nav-link"
+            href="/privacy-notice.html"
+            target="_blank"
+            rel="noreferrer"
+          >
+            <LockKeyhole size={17} />
+            Privacy & review notice
+          </a>
+          <div className="sidebar-bottom">
+            <button
+              className={`nav-link ${page === "Profile" ? "active" : ""}`}
+              onClick={() => navigate("Profile")}
+            >
+              <Settings2 size={17} />
+              Settings & profile
+            </button>
+            <div className="sidebar-foot" title={buildLabel}>
+              <span className="online-dot" />
+              {environmentShortLabel} · {mode === "demo" ? "Demo" : "Connected"}
+              <span title={buildLabel}>Test Version 1.3.4.9</span>
+            </div>
           </div>
         </div>
       </aside>
       {mobile && (
         <div className="mobile-shade" onClick={() => setMobile(false)} />
       )}
-      <div className="workspace-main">
+      <div
+        className={`workspace-main ${page === "Overview" ? "overview-workspace" : ""}`}
+      >
         <header className="topbar">
           <div className="breadcrumbs">
             <button
@@ -767,78 +1393,46 @@ export default function App() {
             >
               <Menu size={20} />
             </button>
-            <span>Workspace</span>
-            <ChevronRight size={12} />
-            <strong>{page}</strong>
           </div>
           <div className="topbar-right">
-            <div className="global-search">
-              <Search size={15} />
-              <input
-                aria-label="Search workspace"
-                placeholder="Search your workspace…"
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  if (page !== "Job services") setPage("Job services");
-                }}
-              />
-              <kbd>⌘ K</kbd>
-            </div>
+            <ClockWidget tracking={tracking} actor={actor} onOpen={() => navigate("Time & attendance")} />
+            <AppearanceSwitch appearance={appearance} onToggle={toggleAppearance} />
+            {page !== "Requests" && (
+              <div className="global-search">
+                <Search size={15} />
+                <input
+                  aria-label="Search workspace"
+                  placeholder="Search requests…"
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setPage("Requests");
+                    setTimeout(
+                      () =>
+                        document
+                          .querySelector<HTMLInputElement>(
+                            '[aria-label="Search requests…"]',
+                          )
+                          ?.focus(),
+                      0,
+                    );
+                  }}
+                />
+                <kbd>
+                  {navigator.userAgent.includes("Mac") ? "⌘ K" : "Ctrl K"}
+                </kbd>
+              </div>
+            )}
             <span className="mode-label">
               <span />
               {mode === "demo" ? "Demo workspace" : "Connected"}
             </span>
-            <div className="notification-wrap">
-              <button
-                className={`icon-button notification-button ${unread ? "has-unread" : ""}`}
-                aria-label={`Notifications${unread ? `, ${unread} unread` : ""}`}
-                onClick={() => {
-                  setNotifications(!notifications);
-                  setAccountMenu(false);
-                }}
-              >
-                <Bell size={18} />
-              </button>
-              {notifications && (
-                <div className="popover notifications">
-                  <div className="popover-head">
-                    <strong>Notifications</strong>
-                    <button
-                      className="text-button"
-                      onClick={() =>
-                        void perform(
-                          { type: "readNotifications" },
-                          "You’re all caught up.",
-                          false,
-                        )
-                      }
-                    >
-                      Mark all read
-                    </button>
-                  </div>
-                  {myNotes.length ? (
-                    myNotes.slice(0, 12).map((n) => (
-                      <div
-                        className={`notification-item ${!n.read ? "unread" : ""}`}
-                        key={n.id}
-                      >
-                        <span className="notification-dot" />
-                        <div>
-                          <p>{n.text}</p>
-                          <small>
-                            {dateText(n.createdAt)} · {timeText(n.createdAt)}
-                          </small>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="popover-empty">You’re all caught up.</div>
-                  )}
-                </div>
-              )}
-            </div>
-            <div className="topbar-divider" />
+            <NotificationCenter
+              key={actor.id} state={state} actor={actor} open={notifications} busy={busy}
+              onToggle={()=>{setNotifications(current=>!current);setAccountMenu(false);}}
+              onClose={()=>setNotifications(false)} onUpdate={updateNotification}
+              onNavigate={openNotificationDestination} syncError={loadError} onRetry={()=>void refresh()}
+            />
             <div className="account-wrap">
               <button
                 className="account-button"
@@ -871,7 +1465,7 @@ export default function App() {
                   {mode === "demo" && (
                     <>
                       <span className="menu-label">SWITCH DEMO ACCOUNT</span>
-                      {(["client", "staff", "admin"] as Role[]).map((role) => (
+                      {(["client", "staff", "admin"] as const).map((role) => (
                         <button
                           key={role}
                           onClick={() => {
@@ -909,7 +1503,13 @@ export default function App() {
             </div>
           </div>
         </header>
-        <main className="content" key={page}>
+        <main
+          className={`content ${dialog?.type === "request" ? "creating-request" : ""} ${page === "Overview" ? `overview-content ${actor.role === "client" ? "has-attention" : ""}` : ""}`}
+          key={page}
+        >
+          <div id="workflow-page" />
+          <div className="workspace-page-content" hidden={dialog?.type === "request"}>
+          {actionError && !dialog && <div className="inline-action-error" role="alert"><CircleHelp size={18} /><span>{actionError}</span><button className="text-button" onClick={() => setActionError("")}>Dismiss</button></div>}
           {loadError && (
             <div className="banner error-banner" role="alert">
               {loadError}
@@ -918,343 +1518,215 @@ export default function App() {
               </button>
             </div>
           )}
-          {page === "Overview" && (
+          {page === "Overview" && actor.role === "admin" && (
             <>
-              <SectionHead
-                title={
-                  actor.role === "client"
-                    ? `Welcome back, ${actor.name.split(" ")[0]}.`
-                    : actor.role === "staff"
-                      ? `Your assignments, ${actor.name.split(" ")[0]}.`
-                      : "Operations overview."
-                }
-                description={
-                  actor.role === "client"
-                    ? "Track your requests, review deliveries, and connect with your assistant."
-                    : actor.role === "staff"
-                      ? "Manage your current assignments and find work that matches your skills."
-                      : "Monitor service delivery, payment status, and team assignments."
-                }
-                action={actor.role !== "staff" ? requestButton : undefined}
-              />
-              <div className="dashboard-context">
-                <span>Workspace overview</span>
-                <span>
-                  <CalendarDays size={13} />
-                  {new Date().toLocaleDateString("en-US", {
-                    weekday: "long",
-                    month: "long",
-                    day: "numeric",
-                    year: "numeric",
-                  })}
-                </span>
-              </div>
-              <div className="spotlight">
-                <div className="spotlight-art">
-                  <div className="art-sheet sheet-back" />
-                  <div className="art-sheet sheet-front">
-                    <div className="art-lines" />
-                    <span>
-                      <Check size={18} />
-                    </span>
-                  </div>
-                </div>
-                <div className="spotlight-copy">
-                  <span className="spotlight-label">
-                    <span />
-                    {actor.role === "client" && review.length
-                      ? "READY FOR YOUR REVIEW"
-                      : actor.role === "staff"
-                        ? "OPEN SERVICE REQUESTS"
-                        : "SERVICE OPERATIONS"}
-                  </span>
-                  <h2>
-                    {actor.role === "client" && review.length
-                      ? review[0].title
-                      : actor.role === "staff"
-                        ? "Find your next assignment."
-                        : actor.role === "admin"
-                          ? "Review the service queue."
-                          : "What can your assistant help with?"}
-                  </h2>
-                  <p>
-                    {actor.role === "client" && review.length
-                      ? `${person(review[0].assigneeId)?.name.split(" ")[0]} has delivered the files. Review the output and approve when you’re satisfied.`
-                      : actor.role === "staff"
-                        ? "Explore open requests and find work that fits your skills."
-                        : actor.role === "admin"
-                          ? "Check assignments, payment status, and deliveries across the team."
-                          : "Create a request with a clear brief, budget, and deadline."}
-                  </p>
-                </div>
-                <button
-                  className="button dark"
-                  onClick={() =>
-                    actor.role === "client" && review.length
-                      ? setDialog({ type: "ticket", id: review[0].id })
-                      : navigate("Job services")
-                  }
-                >
-                  {actor.role === "client" && review.length
-                    ? "Review delivery"
-                    : "Explore requests"}
-                  <ArrowUpRight size={15} />
-                </button>
-              </div>
-              <div className="stats-grid">
-                {[
-                  {
-                    label:
-                      actor.role === "staff"
-                        ? "ACTIVE ASSIGNMENTS"
-                        : "ACTIVE PROJECTS",
-                    value: active.length,
-                    icon: BriefcaseBusiness,
-                    note: active.length
-                      ? "Services in progress"
-                      : "No work in progress",
-                    color: "purple",
-                  },
-                  {
-                    label:
-                      actor.role === "admin"
-                        ? "AWAITING DELIVERY"
-                        : actor.role === "staff"
-                          ? "AWAITING CLIENT REVIEW"
-                          : "WAITING ON YOU",
-                    value:
-                      actor.role === "admin"
-                        ? mine.filter(
-                            (t) =>
-                              paymentSummary(state, t.id) === "Paid" &&
-                              !t.deliveredAt,
-                          ).length
-                        : review.length,
-                    icon: Clock3,
-                    note: review.length
-                      ? "Deliveries awaiting review"
-                      : "You’re all caught up",
-                    color: "peach",
-                  },
-                  {
-                    label:
-                      actor.role === "staff"
-                        ? "TOTAL EARNED"
-                        : "TOTAL INVESTED",
-                    value: money(totalPaid),
-                    icon: Wallet,
-                    note:
-                      mode === "demo"
-                        ? "Simulated payments"
-                        : "All-time paid services",
-                    color: "mint",
-                  },
-                  {
-                    label:
-                      actor.role === "admin"
-                        ? "COMPLETED REQUESTS"
-                        : "UPCOMING CALL",
-                    value:
-                      actor.role === "admin"
-                        ? completed.length
-                        : upcoming[0]
-                          ? dateText(upcoming[0].start)
-                          : "All clear",
-                    icon: actor.role === "admin" ? CircleCheck : CalendarDays,
-                    note:
-                      actor.role === "admin"
-                        ? "Approved by clients"
-                        : upcoming[0]
-                          ? `${timeText(upcoming[0].start)} · ${person(actor.role === "staff" ? upcoming[0].clientId : upcoming[0].staffId)?.name.split(" ")[0]}`
-                          : "No appointments scheduled",
-                    color: "gold",
-                  },
-                ].map((item) => (
-                  <div className={`stat-card ${item.color}`} key={item.label}>
-                    <div className="stat-label">
-                      {item.label}
-                      <item.icon size={16} />
-                    </div>
-                    <strong>{item.value}</strong>
-                    <span>{item.note}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="dashboard-grid">
-                <section className="panel project-panel">
-                  <div className="panel-head">
-                    <div>
-                      <h2>
-                        {actor.role === "staff"
-                          ? "Your project activity"
-                          : "Project activity"}
-                        <span className="count-pill">{mine.length}</span>
-                      </h2>
-                      <p>Recent requests and delivery status.</p>
-                    </div>
-                    <button
-                      className="text-button"
-                      onClick={() => navigate("Job services")}
-                    >
-                      View all projects
-                      <ArrowUpRight size={14} />
-                    </button>
-                  </div>
-                  <DataTable
-                    data={mine.slice(0, 4)}
-                    columns={columns}
-                    onRow={(t) => setDialog({ type: "ticket", id: t.id })}
-                  />
-                  <div className="panel-foot">
-                    <span>
-                      <span className="online-dot" />
-                      {completed.length} project
-                      {completed.length !== 1 ? "s" : ""} completed.
-                    </span>
-                    <button
-                      className="text-button"
-                      onClick={() => navigate("Job services")}
-                    >
-                      View your service queue
-                      <ArrowUpRight size={14} />
-                    </button>
-                  </div>
-                </section>
-                <section className="panel team-panel">
-                  <div className="panel-head">
-                    <div>
-                      <h2>
-                        {actor.role === "client"
-                          ? "Your virtual assistants"
-                          : "Support team"}
-                      </h2>
-                      <p>Availability and assigned support.</p>
-                    </div>
-                    <Users size={18} />
-                  </div>
-                  <div className="team-list">
-                    {state.profiles
-                      .filter((p) => p.role === "staff")
-                      .map((p, i) => (
-                        <div className="team-person" key={p.id}>
-                          <div className="avatar-online">
-                            <Avatar name={p.name} color={i} />
-                            {p.available && <i />}
-                          </div>
-                          <div>
-                            <strong>{p.name}</strong>
-                            <small>
-                              {i === 0
-                                ? "Creative & operations"
-                                : "Support & research"}
-                            </small>
-                          </div>
-                          <span
-                            className={`team-status ${p.available ? "" : "offline"}`}
-                          >
-                            {p.available ? "Available" : "Away"}
-                          </span>
-                        </div>
-                      ))}
-                  </div>
-                  <div className="team-note">
-                    <MessageSquare size={16} />
-                    <p>
-                      Keep project discussions in the ticket conversation so the
-                      team has the full context.
-                    </p>
-                  </div>
-                  <button
-                    className="team-link"
-                    onClick={() => navigate("Messages")}
-                  >
-                    Open conversations
-                    <ArrowRight size={15} />
-                  </button>
-                </section>
-                <section className="panel appointments-panel">
-                  <div className="panel-head">
-                    <div>
-                      <h2>Upcoming appointments</h2>
-                      <p>Your upcoming appointments.</p>
-                    </div>
-                    <button
-                      className="text-button"
-                      onClick={() => navigate("Appointments")}
-                    >
-                      View calendar
-                      <ArrowUpRight size={14} />
-                    </button>
-                  </div>
-                  {upcoming.length ? (
-                    upcoming.slice(0, 2).map(appointmentCard)
-                  ) : (
-                    <Empty
-                      icon={<CalendarDays size={24} />}
-                      title="No upcoming appointments"
-                      text="Book a call to connect with your assistant."
-                    />
-                  )}
-                </section>
-                <section className="panel activity-panel">
-                  <div className="panel-head">
-                    <div>
-                      <h2>Recent activity</h2>
-                      <p>Messages, payments, and delivery updates.</p>
-                    </div>
-                  </div>
-                  <div className="activity-list">
-                    {(actor.role === "admin"
-                      ? state.audit.slice(0, 3).map((a) => ({
-                          id: a.id,
-                          text: `${person(a.actorId)?.name.split(" ")[0]} · ${a.text}`,
-                          createdAt: a.createdAt,
-                        }))
-                      : myNotes.slice(0, 3)
-                    ).map((n, i) => (
-                      <div className="activity-item" key={n.id}>
-                        <span className={`activity-icon category-${i}`}>
-                          {i === 0 ? (
-                            <CircleCheck size={14} />
-                          ) : i === 1 ? (
-                            <MessageSquare size={14} />
-                          ) : (
-                            <CreditCard size={14} />
-                          )}
-                        </span>
-                        <div>
-                          <p>{n.text}</p>
-                          <small>
-                            {dateText(n.createdAt)} · {timeText(n.createdAt)}
-                          </small>
-                        </div>
-                      </div>
-                    ))}
-                    {!myNotes.length && actor.role !== "admin" && (
-                      <p className="muted">
-                        Updates will appear as your projects progress.
-                      </p>
-                    )}
-                  </div>
-                </section>
-              </div>
-              <div className="workspace-footer">
-                <span>{brand.name}</span>
-                <span title={buildLabel}>
-                  {versionLabel} · {environmentLabel} ·{" "}
-                  {mode === "demo" ? "Demo data" : "Connected workspace"}
-                </span>
-              </div>
+              <OwnerDashboard state={state} tracking={tracking}
+                onRequest={(id) => setDialog({ type: "ticket", id })}
+                onTime={() => navigate("Time & attendance")}
+                onBilling={() => navigate("Billing")}
+                onClients={() => navigate("Clients")} />
+              <div className="workspace-footer"><span>{brand.name}</span><span title={buildLabel}>Test Version 1.3.4.9 · {versionLabel} · {environmentLabel}</span></div>
+            </>
+          )}
+          {page === "Overview" && ["client", "staff"].includes(actor.role) && (
+            <>
+              <RoleDashboard key={actor.id} state={state} actor={actor} tracking={tracking}
+                onRequest={(id) => setDialog({ type: "ticket", id })}
+                onPayment={(id) => setDialog({ type: "pay", id })}
+                onConversation={openConversation}
+                onAppointment={(id) => setDialog({ type: "cancel", id })}
+                onTime={() => navigate("Time & attendance")}
+                onCreate={() => setDialog({ type: "request" })}
+                onBoard={() => navigate("Work board")} />
+              <div className="workspace-footer"><span>{brand.name}</span><span title={buildLabel}>Test Version 1.3.4.9 · {versionLabel} · {environmentLabel}</span></div>
             </>
           )}
 
-          {page === "Job services" && (
+          {page === "Work board" && (
+            <WorkBoard state={state} actor={actor}
+              onOpenTicket={(id) => setDialog({ type: "ticket", id })}
+              onCreate={actor.role === "client" ? () => setDialog({ type: "request" }) : undefined} />
+          )}
+          {page === "Time & attendance" && (actor.role === "admin" || actor.role === "staff") && (
+            <TimeWorkspace tracking={tracking} state={state} actor={actor} />
+          )}
+          {page === "Clients" && actor.role === "admin" && (
+            <ClientDirectory state={state} actor={actor}
+              onOpenTicket={(id) => setDialog({ type: "ticket", id })} />
+          )}
+          {page === "Request templates" && actor.role === "client" && (
+            <ServiceTemplates onUse={(templateId) => setDialog({ type: "request", templateId })} />
+          )}
+
+          {page === "Assistants" && actor.role === "client" && (
             <>
               <SectionHead
-                title="Service requests"
+                title="Find an assistant"
+                description="Explore active Nexus assistants by service and availability. Open a profile to learn more or book a call."
+                action={requestButton}
+              />
+              <div
+                className="assistant-directory-controls"
+                role="search"
+                aria-label="Find assistants"
+              >
+                <label>
+                  <span>Search</span>
+                  <input
+                    type="search"
+                    placeholder="Name or skill"
+                    value={assistantSearch}
+                    onChange={(event) => setAssistantSearch(event.target.value)}
+                  />
+                </label>
+                <label>
+                  <span>Service</span>
+                  <select
+                    value={assistantCategory}
+                    onChange={(event) =>
+                      setAssistantCategory(event.target.value)
+                    }
+                  >
+                    <option>All services</option>
+                    {categories.map((category) => (
+                      <option key={category}>{category}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span>Availability</span>
+                  <select
+                    value={assistantAvailability}
+                    onChange={(event) =>
+                      setAssistantAvailability(event.target.value)
+                    }
+                  >
+                    <option>All assistants</option>
+                    <option>Available now</option>
+                  </select>
+                </label>
+              </div>
+              <p className="assistant-result-count" role="status">
+                {availableAssistants.length}{" "}
+                {availableAssistants.length === 1 ? "assistant" : "assistants"}{" "}
+                found
+              </p>
+              {availableAssistants.length ? (
+                <div className="assistant-directory-grid">
+                  {availableAssistants.map((profile) => {
+                    const pastRatings = overviewTickets.filter(
+                      (ticket) =>
+                        ticket.assigneeId === profile.id && ticket.rating,
+                    );
+                    const visualCategory =
+                      profile.skills.find(
+                        (skill) => skill === assistantCategory,
+                      ) ||
+                      profile.skills.find(
+                        (skill) => skill !== "Administrative support",
+                      ) ||
+                      profile.skills[0];
+                    return (
+                      <article
+                        className="assistant-directory-card"
+                        key={profile.id}
+                      >
+                        <img
+                          src={serviceVisual(visualCategory)}
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                        />
+                        <div className="assistant-directory-body">
+                          <div className="assistant-directory-identity">
+                            <Avatar name={profile.name} />
+                            <div>
+                              <h2>{profile.name}</h2>
+                              <span>
+                                {profile.available
+                                  ? "Available for calls"
+                                  : "Currently away"}
+                              </span>
+                            </div>
+                          </div>
+                          <p>{profile.bio || "Nexus virtual assistant"}</p>
+                          <div
+                            className="assistant-skill-list"
+                            aria-label={`${profile.name}'s services`}
+                          >
+                            {profile.skills.slice(0, 3).map((skill) => (
+                              <span key={skill}>{skill}</span>
+                            ))}
+                            {profile.skills.length > 3 && (
+                              <small>+{profile.skills.length - 3} more</small>
+                            )}
+                          </div>
+                          <div className="assistant-directory-foot">
+                            <span>
+                              {pastRatings.length
+                                ? `${(pastRatings.reduce((sum, ticket) => sum + (ticket.rating || 0), 0) / pastRatings.length).toFixed(1)} ★ from your requests`
+                                : "No feedback from your requests"}
+                            </span>
+                            <button
+                              className="button secondary compact"
+                              onClick={() =>
+                                setDialog({ type: "assistant", id: profile.id })
+                              }
+                            >
+                              View profile
+                            </button>
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              ) : (
+                <Empty
+                  icon={<Users size={24} />}
+                  title="No assistants match these filters"
+                  text="Try a different service or include assistants who are currently away."
+                />
+              )}
+            </>
+          )}
+
+          {page === "Requests" && (
+            <>
+              <SectionHead
+                title="Requests"
                 description="Manage the brief, budget, assignment, and status of each service."
                 action={requestButton}
               />
+              {actor.role === "admin" && assigneeFilter && (
+                <div className="request-scope-note">
+                  <span>
+                    Showing requests assigned to{" "}
+                    <strong>
+                      {person(assigneeFilter)?.name || "this assistant"}
+                    </strong>
+                  </span>
+                  <button
+                    className="text-button"
+                    onClick={() => setAssigneeFilter(null)}
+                  >
+                    Clear filter
+                  </button>
+                </div>
+              )}
+              {createdWindow && (
+                <div className="request-scope-note">
+                  <span>
+                    Opened during <strong>{createdWindow.label}</strong>
+                  </span>
+                  <button
+                    className="text-button"
+                    onClick={() => setCreatedWindow(null)}
+                  >
+                    Clear date filter
+                  </button>
+                </div>
+              )}
               <div className="page-tabs">
                 {[
                   "All requests",
@@ -1272,24 +1744,64 @@ export default function App() {
                     {f}
                     <span>
                       {f === "All requests"
-                        ? mine.length
-                        : mine.filter((t) =>
+                        ? requestScope.length
+                        : requestScope.filter((t) =>
                             f === "Available" ? !t.assigneeId : t.status === f,
                           ).length}
                     </span>
                   </button>
                 ))}
               </div>
-              <section className="panel">
+              <section className="panel requests-panel">
                 <div className="table-toolbar">
                   <SearchBox value={search} onChange={setSearch} />
-                  <span className="muted">
-                    {filtered.length} request{filtered.length !== 1 ? "s" : ""}
-                  </span>
+                  <div className="request-toolbar-meta">
+                    <span className="muted" role="status">
+                      {filtered.length} request
+                      {filtered.length !== 1 ? "s" : ""}
+                    </span>
+                    {(search ||
+                      filter !== "All requests" ||
+                      createdWindow ||
+                      assigneeFilter) && (
+                      <button
+                        className="text-button"
+                        onClick={() => {
+                          setSearch("");
+                          setFilter("All requests");
+                          setAssigneeFilter(null);
+                          setCreatedWindow(null);
+                        }}
+                      >
+                        Reset view
+                      </button>
+                    )}
+                  </div>
                 </div>
+                {actor.role === "admin" &&
+                  selectedVisibleRequests.length > 0 && (
+                    <div className="request-selection-bar" role="status">
+                      <strong>{selectedVisibleRequests.length} selected</strong>
+                      <div>
+                        <button
+                          className="button secondary compact"
+                          onClick={exportSelectedRequests}
+                        >
+                          <Download size={15} /> Download summary
+                        </button>
+                        <button
+                          className="text-button"
+                          onClick={() => setSelectedRequestIds([])}
+                        >
+                          Clear selection
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 <DataTable
                   data={filtered}
                   columns={columns}
+                  mobileCard={requestCard}
                   onRow={(t) => setDialog({ type: "ticket", id: t.id })}
                   empty="No requests match this view. Try another filter or create a new request."
                   pageSize={8}
@@ -1314,11 +1826,11 @@ export default function App() {
             </>
           )}
 
-          {page === "Appointments" && (
+          {page === "Appointments" && actor.role !== "admin" && (
             <>
               <SectionHead
                 title="Appointments"
-                description={`Your appointments, all in one place. Times shown in ${Intl.DateTimeFormat().resolvedOptions().timeZone}.`}
+                description={`Coordinate your authorized appointments. Times shown in ${Intl.DateTimeFormat().resolvedOptions().timeZone}.`}
                 action={
                   actor.role === "client" && (
                     <button
@@ -1331,36 +1843,66 @@ export default function App() {
                   )
                 }
               />
-              <div className="calendar-layout">
+              <div className="calendar-layout nexus-calendar">
                 <section className="panel calendar-panel">
+                  <div className="calendar-intro">
+                    <div>
+                      <span>My schedule</span>
+                      <h2>Plan your time</h2>
+                    </div>
+                    <p>
+                      Select a date to{" "}
+                      {actor.role === "client"
+                        ? "book a call"
+                        : "see your assigned meetings"}
+                      .
+                    </p>
+                  </div>
                   <FullCalendar
                     plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
                     initialView="dayGridMonth"
                     headerToolbar={{
                       left: "prev,next today",
                       center: "title",
-                      right: "dayGridMonth,timeGridWeek",
+                      right: "dayGridMonth,timeGridWeek,timeGridDay",
                     }}
                     height="auto"
                     events={myAppointments.map((a) => ({
                       id: a.id,
-                      title: a.title,
+                      title:
+                        a.status === "No-show"
+                          ? `No-show · ${a.title}`
+                          : a.title,
                       start: a.start,
                       end: a.end,
-                      backgroundColor: "#eeeafd",
-                      borderColor: "#ded6fc",
-                      textColor: "#6550c1",
+                      classNames: [
+                        a.status === "No-show"
+                          ? "event-no-show"
+                          : "event-scheduled",
+                      ],
+                      backgroundColor:
+                        a.status === "No-show" ? "#523b61" : "#6f54ac",
+                      borderColor:
+                        a.status === "No-show" ? "#745581" : "#8f72ce",
+                      textColor: "#ffffff",
                     }))}
                     dateClick={(info) => {
-                      if (actor.role === "client")
+                      setCalendarDate(info.dateStr.slice(0, 10));
+                      if (
+                        actor.role === "client" &&
+                        info.dateStr.slice(0, 10) >= dateInput()
+                      )
                         setDialog({
                           type: "appointment",
                           date: info.dateStr.slice(0, 10),
                         });
                     }}
-                    eventClick={(info) =>
-                      setDialog({ type: "cancel", id: info.event.id })
-                    }
+                    eventClick={(info) => {
+                      setCalendarDate(
+                        dateInput(info.event.start || new Date()),
+                      );
+                      setDialog({ type: "cancel", id: info.event.id });
+                    }}
                     dayMaxEvents={2}
                     nowIndicator
                   />
@@ -1368,19 +1910,42 @@ export default function App() {
                 <section className="panel calendar-upcoming">
                   <div className="panel-head">
                     <div>
-                      <h2>Coming up next</h2>
-                      <p>Scheduled conversations with your team.</p>
+                      <span className="calendar-day-label">
+                        {dateText(calendarDate, {
+                          weekday: "long",
+                          month: "long",
+                          day: "numeric",
+                        })}
+                      </span>
+                      <h2>Schedule</h2>
+                      <p>
+                        {selectedAppointments.length}{" "}
+                        {selectedAppointments.length === 1
+                          ? "appointment"
+                          : "appointments"}{" "}
+                        on this day
+                      </p>
                     </div>
-                    <Video size={18} />
+                    <CalendarDays size={18} />
                   </div>
-                  {upcoming.length ? (
-                    upcoming.map(appointmentCard)
+                  {selectedAppointments.length ? (
+                    selectedAppointments.map(appointmentCard)
                   ) : (
                     <Empty
                       icon={<CalendarDays size={26} />}
-                      title="Your calendar is clear"
-                      text="Schedule your next catch-up when you’re ready."
+                      title="No appointments on this day"
+                      text={
+                        actor.role === "client"
+                          ? "Select a day in the calendar or schedule a call."
+                          : "Your assigned meetings will appear here."
+                      }
                     />
+                  )}
+                  {upcoming.length > 0 && (
+                    <div className="calendar-next">
+                      <h3>Coming up next</h3>
+                      {upcoming.slice(0, 3).map(appointmentCard)}
+                    </div>
                   )}
                   <div className="calendar-note">
                     <Clock3 size={17} />
@@ -1394,13 +1959,45 @@ export default function App() {
             </>
           )}
 
-          {page === "Messages" && (
+          {page === "Messages" && actor.role !== "admin" && (
             <>
               <SectionHead
-                title="Project conversations"
-                description="One shared conversation for every project."
+                title="Request conversations"
+                description="One shared conversation for every request."
+                action={
+                  currentChat && (
+                    <button
+                      className="button secondary"
+                      onClick={() =>
+                        setDialog({ type: "report", id: currentChat.id })
+                      }
+                    >
+                      Report a problem
+                    </button>
+                  )
+                }
               />
               <section className="panel messages-layout">
+                <label className="conversation-picker">
+                  Conversation
+                  <select
+                    aria-label="Choose conversation"
+                    value={currentChat?.id || ""}
+                    onChange={(event) => setConversation(event.target.value)}
+                    disabled={!currentChat}
+                  >
+                    {!currentChat && (
+                      <option value="">No conversations yet</option>
+                    )}
+                    {mine
+                      .filter((ticket) => ticket.assigneeId)
+                      .map((ticket) => (
+                        <option key={ticket.id} value={ticket.id}>
+                          {ticket.title} · NX-{ticket.number}
+                        </option>
+                      ))}
+                  </select>
+                </label>
                 <div className="conversation-list">
                   <div className="conversation-heading">
                     <h2>Conversations</h2>
@@ -1474,7 +2071,7 @@ export default function App() {
                           setDialog({ type: "ticket", id: currentChat.id })
                         }
                       >
-                        Project details
+                        Request details
                         <ArrowUpRight size={14} />
                       </button>
                     </header>
@@ -1507,7 +2104,7 @@ export default function App() {
                     <div className="chat-body">
                       <div className="chat-start">
                         <ShieldCheck size={13} />A shared space for you and your
-                        project team.
+                        request team.
                       </div>
                       {state.messages
                         .filter((m) => m.ticketId === currentChat.id)
@@ -1551,7 +2148,7 @@ export default function App() {
                             <div>
                               <strong>{d.name}</strong>
                               <small>
-                                {d.isOutput ? "Project output" : "Shared file"}{" "}
+                                {d.isOutput ? "Request output" : "Shared file"}{" "}
                                 · {dateText(d.createdAt)}
                               </small>
                             </div>
@@ -1569,7 +2166,7 @@ export default function App() {
                     {currentChat.status === "Completed" ? (
                       <div className="chat-closed">
                         <CircleCheck size={17} />
-                        This project is complete. Thank you for making good
+                        This request is complete. Thank you for making good
                         things happen.
                       </div>
                     ) : (
@@ -1644,78 +2241,47 @@ export default function App() {
                 description="Payment requests, confirmations, and history in one place."
               />
               <div className="billing-demo-banner">
-                <ShieldCheck size={20} />
+                <ShieldCheck size={18} />
+                <p>
+                  <strong>Test payments only.</strong> No card details or real
+                  charges.
+                </p>
+              </div>
+              <dl
+                className="dashboard-summary billing-summary"
+                aria-label="Payment summary"
+              >
                 <div>
-                  <strong>Prototype payments · No real charges</strong>
-                  <p>
-                    Try the full payment experience safely. No bank or card
-                    details needed.
-                  </p>
+                  <dt>Total paid</dt>
+                  <dd>{money(totalPaid)}</dd>
                 </div>
-                <span>TEST MODE</span>
-              </div>
-              <div className="stats-grid billing-stats">
-                {[
-                  {
-                    label: "TOTAL PAID",
-                    value: money(totalPaid),
-                    icon: CheckCheck,
-                    color: "mint",
-                  },
-                  {
-                    label: "AWAITING PAYMENT",
-                    value: money(
-                      state.payments
-                        .filter(
-                          (p) =>
-                            p.status !== "Paid" &&
-                            mine.some((t) => t.id === p.ticketId),
-                        )
-                        .reduce((sum, p) => sum + p.amount, 0),
-                    ),
-                    icon: Clock3,
-                    color: "peach",
-                  },
-                  {
-                    label: "PAYMENT REQUESTS",
-                    value: state.payments.filter((p) =>
-                      mine.some((t) => t.id === p.ticketId),
-                    ).length,
-                    icon: FileText,
-                    color: "purple",
-                  },
-                ].map((item) => (
-                  <div className={`stat-card ${item.color}`} key={item.label}>
-                    <div className="stat-label">
-                      {item.label}
-                      <item.icon size={17} />
-                    </div>
-                    <strong>{item.value}</strong>
-                    <span>Across your workspace</span>
-                  </div>
-                ))}
-              </div>
-              <section className="panel">
+                <div>
+                  <dt>Awaiting payment</dt>
+                  <dd>{money(outstandingTotal)}</dd>
+                </div>
+                <div>
+                  <dt>Payment requests</dt>
+                  <dd>{paymentRequestCount}</dd>
+                </div>
+              </dl>
+              <section className="panel billing-panel">
                 <div className="panel-head">
                   <div>
                     <h2>Payment activity</h2>
-                    <p>From first request to final confirmation.</p>
                   </div>
-                  <CreditCard size={18} />
                 </div>
                 <DataTable
                   data={state.payments
                     .filter((p) => mine.some((t) => t.id === p.ticketId))
                     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))}
+                  mobileCard={paymentCard}
+                  mobileSortLabel="Sort payments"
                   columns={[
                     {
                       accessorKey: "description",
                       header: "Payment request",
                       cell: ({ row }) => (
                         <div className="payment-cell">
-                          <span className="payment-icon">
-                            <ArrowDownLeft size={18} />
-                          </span>
                           <div>
                             <strong>{row.original.description}</strong>
                             <small>
@@ -1746,44 +2312,7 @@ export default function App() {
                       id: "action",
                       header: "",
                       enableSorting: false,
-                      cell: ({ row }) =>
-                        row.original.status === "Paid" ? (
-                          <span className="paid-label">
-                            <CheckCheck size={14} />
-                            Paid{" "}
-                            {row.original.paidAt &&
-                              dateText(row.original.paidAt)}
-                          </span>
-                        ) : actor.role === "client" ? (
-                          <button
-                            className="button primary compact"
-                            onClick={() =>
-                              setDialog({ type: "pay", id: row.original.id })
-                            }
-                          >
-                            Pay in test mode
-                            <ArrowUpRight size={13} />
-                          </button>
-                        ) : row.original.status === "Pending" ? (
-                          <button
-                            disabled={busy}
-                            className="button secondary compact"
-                            onClick={() =>
-                              void perform(
-                                {
-                                  type: "verifyPayment",
-                                  paymentId: row.original.id,
-                                },
-                                "Payment request verified.",
-                                false,
-                              )
-                            }
-                          >
-                            Verify request
-                          </button>
-                        ) : (
-                          <span className="muted">Awaiting client</span>
-                        ),
+                      cell: ({ row }) => paymentAction(row.original),
                     },
                   ]}
                   empty="Payment requests will appear here when a service is requested."
@@ -1804,7 +2333,7 @@ export default function App() {
                 <div>
                   <strong>Your shared workspace</strong>
                   <p>
-                    Upload documents up to 10 MB. Project files can also be
+                    Upload documents up to 10 MB. Request files can also be
                     shared directly in conversations.
                   </p>
                 </div>
@@ -1820,7 +2349,7 @@ export default function App() {
                   files
                 </Badge>
               </div>
-              <section className="panel">
+              <section className="panel files-panel">
                 <div className="table-toolbar">
                   <SearchBox
                     value={search}
@@ -1841,6 +2370,46 @@ export default function App() {
                         mine.some((t) => t.id === d.ticketId)) &&
                       d.name.toLowerCase().includes(search.toLowerCase()),
                   )}
+                  mobileSortLabel="Sort files"
+                  mobileCard={(doc) => (
+                    <>
+                      <div className="mobile-request-heading file-card-heading">
+                        <div className="payment-cell">
+                          <span
+                            className={`file-icon ${doc.isOutput ? "output" : ""}`}
+                          >
+                            <FileText size={21} />
+                          </span>
+                          <div>
+                            <strong>{doc.name}</strong>
+                            <small>
+                              {doc.isOutput
+                                ? "Request output"
+                                : "Shared document"}{" "}
+                              ·{" "}
+                              {doc.size < 1024 * 1024
+                                ? `${Math.max(1, Math.round(doc.size / 1024))} KB`
+                                : `${(doc.size / 1024 / 1024).toFixed(1)} MB`}
+                            </small>
+                          </div>
+                        </div>
+                        <Badge tone={doc.reviewed ? "paid" : "pending"}>
+                          {doc.reviewed ? "Reviewed" : "To review"}
+                        </Badge>
+                      </div>
+                      <dl className="mobile-request-facts">
+                        <div>
+                          <dt>Shared by</dt>
+                          <dd>{person(doc.ownerId)?.name || "Team"}</dd>
+                        </div>
+                        <div>
+                          <dt>Uploaded</dt>
+                          <dd>{dateText(doc.createdAt)}</dd>
+                        </div>
+                      </dl>
+                      {documentActions(doc, true)}
+                    </>
+                  )}
                   columns={[
                     {
                       accessorKey: "name",
@@ -1856,7 +2425,7 @@ export default function App() {
                             <strong>{row.original.name}</strong>
                             <small>
                               {row.original.isOutput
-                                ? "Project output"
+                                ? "Request output"
                                 : "Shared document"}{" "}
                               ·{" "}
                               {row.original.size < 1024 * 1024
@@ -1893,37 +2462,7 @@ export default function App() {
                       id: "actions",
                       header: "",
                       enableSorting: false,
-                      cell: ({ row }) => (
-                        <div className="row-actions">
-                          {actor.role !== "client" &&
-                            !row.original.reviewed && (
-                              <button
-                                className="icon-button"
-                                title="Mark reviewed"
-                                aria-label={`Review ${row.original.name}`}
-                                onClick={() =>
-                                  void perform(
-                                    {
-                                      type: "reviewDocument",
-                                      documentId: row.original.id,
-                                    },
-                                    "Document marked as reviewed.",
-                                    false,
-                                  )
-                                }
-                              >
-                                <FileCheck2 size={17} />
-                              </button>
-                            )}
-                          <button
-                            className="icon-button"
-                            aria-label={`Download ${row.original.name}`}
-                            onClick={() => void download(row.original)}
-                          >
-                            <Download size={17} />
-                          </button>
-                        </div>
-                      ),
+                      cell: ({ row }) => documentActions(row.original),
                     },
                   ]}
                   empty="A fresh folder. Upload your first document to get started."
@@ -2110,66 +2649,83 @@ export default function App() {
             </>
           )}
 
+          {(
+            [
+              "Conversation Review",
+              "Schedule History",
+              "Administrative Audit Logs",
+            ] as Page[]
+          ).includes(page) &&
+            actor.role === "admin" && (
+              <PrivacyDesk
+                view={
+                  page as
+                    | "Conversation Review"
+                    | "Schedule History"
+                    | "Administrative Audit Logs"
+                }
+                actor={actor}
+                profiles={state.profiles}
+                tickets={state.tickets}
+              />
+            )}
           {page === "Activity logs" && actor.role === "admin" && (
             <>
               <SectionHead
                 title="Operations & activity"
                 description="Track payments and output delivery across your entire workspace."
               />
-              <div className="stats-grid">
-                {[
-                  {
-                    label: "PAID · OUTPUT DELIVERED",
-                    paid: true,
-                    delivered: true,
-                    color: "mint",
-                  },
-                  {
-                    label: "PAID · AWAITING OUTPUT",
-                    paid: true,
-                    delivered: false,
-                    color: "purple",
-                  },
-                  {
-                    label: "PENDING · OUTPUT DELIVERED",
-                    paid: false,
-                    delivered: true,
-                    color: "gold",
-                  },
-                  {
-                    label: "PENDING · AWAITING OUTPUT",
-                    paid: false,
-                    delivered: false,
-                    color: "peach",
-                  },
-                ].map((item) => (
-                  <div className={`stat-card ${item.color}`} key={item.label}>
-                    <div className="stat-label">
-                      {item.label}
-                      <ShieldCheck size={15} />
-                    </div>
-                    <strong>
-                      {
-                        mine.filter(
-                          (t) =>
-                            (paymentSummary(state, t.id) === "Paid") ===
-                              item.paid && !!t.deliveredAt === item.delivered,
-                        ).length
-                      }
-                    </strong>
-                    <span>Across all client requests</span>
-                  </div>
-                ))}
-              </div>
-              <section className="panel">
+              <section className="panel operations-matrix">
                 <div className="panel-head">
                   <div>
-                    <h2>Ticket oversight</h2>
-                    <p>Every payment. Every promised output.</p>
+                    <h2>Payment and delivery status</h2>
+                    <p>All client requests</p>
+                  </div>
+                </div>
+                <table>
+                  <thead>
+                    <tr>
+                      <th scope="col">Payment</th>
+                      <th scope="col">Output delivered</th>
+                      <th scope="col">Awaiting output</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <th scope="row">Fully paid</th>
+                      <td>
+                        <strong>{requestStatusCount(true, true)}</strong>
+                      </td>
+                      <td>
+                        <strong>{requestStatusCount(true, false)}</strong>
+                      </td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Not fully paid</th>
+                      <td>
+                        <strong>{requestStatusCount(false, true)}</strong>
+                      </td>
+                      <td>
+                        <strong>{requestStatusCount(false, false)}</strong>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+                <p className="matrix-note">
+                  Not fully paid includes pending, verified, or no payment
+                  record.
+                </p>
+              </section>
+              <section className="panel oversight-panel">
+                <div className="panel-head">
+                  <div>
+                    <h2>Request oversight</h2>
+                    <p>Payment and delivery for each request.</p>
                   </div>
                 </div>
                 <DataTable
                   data={mine}
+                  mobileCard={oversightCard}
                   columns={[
                     {
                       accessorKey: "title",
@@ -2203,7 +2759,7 @@ export default function App() {
                     },
                     {
                       accessorKey: "status",
-                      header: "Ticket status",
+                      header: "Request status",
                       cell: ({ row }) => <Badge>{row.original.status}</Badge>,
                     },
                   ]}
@@ -2214,11 +2770,13 @@ export default function App() {
                 <div className="panel-head">
                   <div>
                     <h2>Workspace activity log</h2>
-                    <p>A record of the actions behind the progress.</p>
+                    <p>Changes made across the workspace.</p>
                   </div>
                 </div>
                 <DataTable
                   data={state.audit}
+                  mobileCard={auditCard}
+                  mobileSortLabel="Sort activity"
                   columns={[
                     {
                       accessorKey: "createdAt",
@@ -2235,7 +2793,7 @@ export default function App() {
                     { accessorKey: "text", header: "Activity" },
                     {
                       id: "ticket",
-                      header: "Ticket",
+                      header: "Request",
                       cell: ({ row }) => {
                         const t = mine.find(
                           (t) => t.id === row.original.ticketId,
@@ -2353,27 +2911,40 @@ export default function App() {
               </div>
             </>
           )}
+          </div>
         </main>
       </div>
 
       {dialog && (
         <Modal
+          key={`${dialog.type}-${dialog.id || dialog.templateId || "new"}`}
+          variant={dialog.type === "request" ? "page" : ["pay", "feedback", "confirmCancel"].includes(dialog.type) ? "modal" : "drawer"}
           title={
-            dialog.type === "request"
-              ? "Create a service request"
+            dialog.type === "confirmCancel"
+              ? "Cancel this appointment?"
+              : dialog.type === "request"
+              ? "Create a request"
               : dialog.type === "appointment"
                 ? "Schedule an appointment"
-                : dialog.type === "payment"
-                  ? "Create a payment request"
-                  : dialog.type === "pay"
-                    ? "Confirm test payment"
-                    : dialog.type === "feedback"
-                      ? "How did we do?"
-                      : dialog.type === "help"
-                        ? "Workspace guide"
-                        : dialog.type === "cancel"
-                          ? "Appointment details"
-                          : "Request details"
+                : dialog.type === "reschedule"
+                  ? "Reschedule appointment"
+                  : dialog.type === "editAppointment"
+                    ? "Edit appointment details"
+                    : dialog.type === "report"
+                      ? "Report a conversation problem"
+                      : dialog.type === "payment"
+                        ? "Create a payment request"
+                        : dialog.type === "pay"
+                          ? "Confirm test payment"
+                          : dialog.type === "feedback"
+                            ? "How did we do?"
+                            : dialog.type === "help"
+                              ? "Workspace guide"
+                              : dialog.type === "assistant"
+                                ? "Assistant profile"
+                                : dialog.type === "cancel"
+                                  ? "Appointment details"
+                                  : "Request details"
           }
           subtitle={
             dialog.type === "request"
@@ -2383,6 +2954,73 @@ export default function App() {
           close={closeDialog}
           wide={dialog.type === "ticket"}
         >
+          {actionError && <div className="inline-action-error" role="alert"><CircleHelp size={18} /><span>{actionError}</span></div>}
+          {dialog.type === "confirmCancel" && <div className="confirmation-content">
+            <p><strong>{myAppointments.find(a => a.id === dialog.id)?.title || "This appointment"}</strong> will be removed from the schedule. The other participant will be notified.</p>
+            <div className="form-actions">
+              <button className="button secondary" disabled={busy} onClick={() => setDialog({type:"cancel", id:dialog.id})}>Keep appointment</button>
+              <button className="button danger-secondary" disabled={busy} onClick={() => void perform({type:"cancelAppointment", appointmentId:dialog.id!}, "Appointment cancelled.")}>{busy ? "Cancelling…" : "Cancel appointment"}</button>
+            </div>
+          </div>}
+          {dialog.type === "assistant" &&
+            (() => {
+              const profile = state.profiles.find(
+                (item) =>
+                  item.id === dialog.id &&
+                  item.role === "staff" &&
+                  item.status === "Active",
+              );
+              if (!profile || actor.role !== "client")
+                return (
+                  <p className="muted">
+                    This assistant profile is unavailable.
+                  </p>
+                );
+              const pastRatings = overviewTickets.filter(
+                (ticket) => ticket.assigneeId === profile.id && ticket.rating,
+              );
+              return (
+                <div className="assistant-profile-detail">
+                  <div className="assistant-profile-top">
+                    <Avatar name={profile.name} />
+                    <div>
+                      <h2>{profile.name}</h2>
+                      <p>
+                        {profile.available
+                          ? "Available for calls"
+                          : "Currently away"}
+                      </p>
+                    </div>
+                  </div>
+                  <p>{profile.bio || "Nexus virtual assistant"}</p>
+                  <h3>Services</h3>
+                  <div className="assistant-skill-list">
+                    {profile.skills.map((skill) => (
+                      <span key={skill}>{skill}</span>
+                    ))}
+                  </div>
+                  <p className="assistant-rating-note">
+                    {pastRatings.length
+                      ? `Your requests: ${(pastRatings.reduce((sum, ticket) => sum + (ticket.rating || 0), 0) / pastRatings.length).toFixed(1)} out of 5 across ${pastRatings.length} completed ${pastRatings.length === 1 ? "request" : "requests"}.`
+                      : "No completed requests with this assistant in your workspace yet."}
+                  </p>
+                  <div className="form-actions">
+                    <button className="button secondary" onClick={closeDialog}>
+                      Close
+                    </button>
+                    <button
+                      className="button primary"
+                      disabled={!profile.available}
+                      onClick={() =>
+                        setDialog({ type: "appointment", staffId: profile.id })
+                      }
+                    >
+                      Book a call
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
           {dialog.type === "request" && (
             <Form
               onSubmit={async (form) => {
@@ -2404,13 +3042,14 @@ export default function App() {
                 <input
                   name="title"
                   placeholder="e.g. A fresh set of social media posts"
+                  defaultValue={requestTemplates.find((t) => t.id === dialog.templateId)?.title}
                   required
                   minLength={5}
                   maxLength={150}
                 />
               </Field>
               <Field label="What would you like help with?">
-                <select name="category" required defaultValue="">
+                <select name="category" required defaultValue={requestTemplates.find((t) => t.id === dialog.templateId)?.category || ""}>
                   <option value="" disabled>
                     Choose a service
                   </option>
@@ -2426,6 +3065,7 @@ export default function App() {
                 <textarea
                   name="description"
                   placeholder="Describe the expected output, requirements, and reference material."
+                  defaultValue={requestTemplates.find((t) => t.id === dialog.templateId)?.description}
                   rows={4}
                   required
                   minLength={15}
@@ -2465,7 +3105,7 @@ export default function App() {
                         type="radio"
                         name="difficulty"
                         value={d}
-                        defaultChecked={i === 1}
+                        defaultChecked={d === (requestTemplates.find((t) => t.id === dialog.templateId)?.difficulty || "Medium")}
                       />
                       <span className={`difficulty-bars difficulty-${i}`}>
                         <i />
@@ -2534,15 +3174,15 @@ export default function App() {
                   <div className="ticket-description">{t.description}</div>
                   <div className="ticket-facts">
                     <div>
-                      <span>PROJECT BUDGET</span>
+                      <span>Request budget</span>
                       <strong>{money(t.budget)}</strong>
                     </div>
                     <div>
-                      <span>DUE DATE</span>
+                      <span>Due date</span>
                       <strong>{dateText(t.dueDate)}</strong>
                     </div>
                     <div>
-                      <span>YOUR ASSISTANT</span>
+                      <span>Your assistant</span>
                       <strong>
                         {assistant ? (
                           <>
@@ -2660,11 +3300,18 @@ export default function App() {
                     <div className="ticket-section-head">
                       <h3>Files & final output</h3>
                       {t.status !== "Completed" &&
-                        (actor.id === t.assigneeId || actor.role === "admin"
+                        actor.role !== "admin" &&
+                        (actor.id === t.assigneeId
                           ? fileUpload(t.id, true)
                           : fileUpload(t.id))}
                     </div>
-                    {docs.length ? (
+                    {actor.role === "admin" ? (
+                      <p className="muted">
+                        Request attachments are private. Use an approved
+                        Conversation Review case for justified, read-only
+                        access.
+                      </p>
+                    ) : docs.length ? (
                       docs.map((d) => (
                         <div className="ticket-file" key={d.id}>
                           <FileText size={19} />
@@ -2701,7 +3348,7 @@ export default function App() {
                     </div>
                   )}
                   <div className="ticket-actions">
-                    {t.assigneeId && (
+                    {t.assigneeId && actor.role !== "admin" && (
                       <button
                         className="button secondary"
                         onClick={() => openConversation(t.id)}
@@ -2788,7 +3435,7 @@ export default function App() {
                 />
               </Field>
               <Field label="Who would you like to connect with?">
-                <select name="staffId" required>
+                <select name="staffId" required defaultValue={dialog.staffId}>
                   {state.profiles
                     .filter(
                       (p) =>
@@ -2882,20 +3529,65 @@ export default function App() {
                     {Intl.DateTimeFormat().resolvedOptions().timeZone}
                   </p>
                   <div className="person-inline">
-                    <Avatar name={person(a.staffId)?.name || "Assistant"} />
-                    <span>{person(a.staffId)?.name}</span>
+                    <Avatar
+                      name={
+                        person(actor.role === "client" ? a.staffId : a.clientId)
+                          ?.name || "Participant"
+                      }
+                    />
+                    <span>
+                      {
+                        person(actor.role === "client" ? a.staffId : a.clientId)
+                          ?.name
+                      }
+                    </span>
                   </div>
                   {a.notes && <blockquote>{a.notes}</blockquote>}
+                  {a.status === "No-show" && (
+                    <p className="calendar-outcome">Marked no-show</p>
+                  )}
                   <div className="form-actions">
+                    {new Date(a.start) > new Date() && (
+                      <button
+                        className="button secondary"
+                        disabled={busy}
+                        onClick={() =>
+                          setDialog({ type: "editAppointment", id: a.id })
+                        }
+                      >
+                        Edit details
+                      </button>
+                    )}
+                    {new Date(a.start) > new Date() && (
+                      <button
+                        className="button secondary"
+                        disabled={busy}
+                        onClick={() =>
+                          setDialog({ type: "reschedule", id: a.id })
+                        }
+                      >
+                        Reschedule
+                      </button>
+                    )}
+                    {new Date(a.end) <= new Date() &&
+                      a.status !== "No-show" && (
+                        <button
+                          className="button secondary"
+                          disabled={busy}
+                          onClick={() =>
+                            void perform(
+                              { type: "markNoShow", appointmentId: a.id },
+                              "Appointment marked no-show.",
+                            )
+                          }
+                        >
+                          Mark no-show
+                        </button>
+                      )}
                     <button
                       className="button danger-secondary"
                       disabled={busy}
-                      onClick={() =>
-                        void perform(
-                          { type: "cancelAppointment", appointmentId: a.id },
-                          "Appointment cancelled.",
-                        )
-                      }
+                      onClick={() => setDialog({ type: "confirmCancel", id: a.id })}
                     >
                       Cancel appointment
                     </button>
@@ -2907,6 +3599,267 @@ export default function App() {
                 </div>
               ) : (
                 <p>This appointment has been cancelled.</p>
+              );
+            })()}
+          {dialog.type === "reschedule" &&
+            (() => {
+              const appointment = myAppointments.find(
+                (item) => item.id === dialog.id,
+              );
+              if (!appointment)
+                return <p>Appointment is no longer available.</p>;
+              return (
+                <Form
+                  onSubmit={async (form) => {
+                    const start = new Date(
+                      `${str(form, "date")}T${str(form, "time")}`,
+                    );
+                    const end = new Date(
+                      start.getTime() + Number(form.get("duration")) * 60000,
+                    );
+                    await perform(
+                      {
+                        type: "rescheduleAppointment",
+                        appointmentId: appointment.id,
+                        start: start.toISOString(),
+                        end: end.toISOString(),
+                      },
+                      "Appointment rescheduled.",
+                    );
+                  }}
+                >
+                  <p>
+                    Choose a new time for <strong>{appointment.title}</strong>.
+                    The other participant will be notified.
+                  </p>
+                  <div className="form-row">
+                    <Field label="New date">
+                      <input
+                        name="date"
+                        type="date"
+                        min={dateInput()}
+                        defaultValue={dateInput(new Date(appointment.start))}
+                        required
+                      />
+                    </Field>
+                    <Field label="New time">
+                      <input
+                        name="time"
+                        type="time"
+                        defaultValue={new Date(appointment.start)
+                          .toTimeString()
+                          .slice(0, 5)}
+                        required
+                      />
+                    </Field>
+                  </div>
+                  <Field label="Duration">
+                    <select
+                      name="duration"
+                      defaultValue={String(
+                        Math.round(
+                          (new Date(appointment.end).getTime() -
+                            new Date(appointment.start).getTime()) /
+                            60000,
+                        ),
+                      )}
+                    >
+                      {[15, 30, 60, 120, 240].map((minutes) => (
+                        <option value={minutes} key={minutes}>
+                          {minutes < 60
+                            ? `${minutes} minutes`
+                            : `${minutes / 60} ${minutes === 60 ? "hour" : "hours"}`}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <div className="form-actions">
+                    <button
+                      className="button secondary"
+                      type="button"
+                      onClick={closeDialog}
+                    >
+                      Back
+                    </button>
+                    <Submit busy={busy}>Save new time</Submit>
+                  </div>
+                </Form>
+              );
+            })()}
+          {dialog.type === "editAppointment" &&
+            (() => {
+              const appointment = myAppointments.find(
+                (item) => item.id === dialog.id,
+              );
+              if (!appointment)
+                return <p>Appointment is no longer available.</p>;
+              return (
+                <Form
+                  onSubmit={async (form) => {
+                    await perform(
+                      {
+                        type: "editAppointment",
+                        appointmentId: appointment.id,
+                        title: str(form, "title"),
+                        notes: str(form, "notes"),
+                      },
+                      "Appointment details updated.",
+                    );
+                  }}
+                >
+                  <Field label="Agenda title">
+                    <input
+                      name="title"
+                      defaultValue={appointment.title}
+                      maxLength={150}
+                      required
+                    />
+                  </Field>
+                  <Field label="Notes">
+                    <textarea
+                      name="notes"
+                      defaultValue={appointment.notes}
+                      maxLength={2000}
+                      rows={4}
+                    />
+                  </Field>
+                  <p>
+                    The other participant will be notified. To change the time,
+                    use Reschedule.
+                  </p>
+                  <div className="form-actions">
+                    <button
+                      className="button secondary"
+                      type="button"
+                      onClick={closeDialog}
+                    >
+                      Back
+                    </button>
+                    <Submit busy={busy}>Save details</Submit>
+                  </div>
+                </Form>
+              );
+            })()}
+          {dialog.type === "report" &&
+            (() => {
+              const ticket = mine.find(
+                (item) => item.id === dialog.id && item.assigneeId,
+              );
+              const client = supabase;
+              if (!ticket) return <p>This conversation is not available.</p>;
+              if (!client)
+                return (
+                  <div className="info-note">
+                    <LockKeyhole size={18} />
+                    <span>
+                      Private case review needs a connected Supabase workspace.
+                      This browser demo cannot protect reports or messages.
+                    </span>
+                  </div>
+                );
+              return (
+                <Form
+                  onSubmit={async (form) => {
+                    setBusy(true);
+                    try {
+                      const { data, error } = await client.rpc(
+                        "request_review_case",
+                        {
+                          case_kind: "conversation",
+                          case_purpose: str(form, "purpose"),
+                          case_reason: str(form, "reason"),
+                          conversation_id: ticket.id,
+                          schedule_subject: null,
+                          assigned_reviewer: null,
+                          range_start: new Date(
+                            str(form, "start"),
+                          ).toISOString(),
+                          range_end: new Date(str(form, "end")).toISOString(),
+                        },
+                      );
+                      if (error || !data)
+                        throw new Error(
+                          error?.message ||
+                            "A reviewer is not available yet. Contact the privacy team.",
+                        );
+                      showToast(`Report filed. Case ${data}`);
+                      setDialog(null);
+                    } catch (error) {
+                      showToast(
+                        error instanceof Error
+                          ? error.message
+                          : "Report could not be filed.",
+                        true,
+                      );
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
+                >
+                  <p>
+                    Report a concern about <strong>{ticket.title}</strong>. A
+                    separate reviewer must approve limited access before reading
+                    messages. Do not quote message content in the reason.
+                  </p>
+                  <Field label="Purpose">
+                    <input
+                      name="purpose"
+                      minLength={8}
+                      maxLength={200}
+                      required
+                      placeholder="What should this review resolve?"
+                    />
+                  </Field>
+                  <div className="form-row">
+                    <Field label="From">
+                      <input
+                        name="start"
+                        type="datetime-local"
+                        required
+                        defaultValue={new Date(
+                          Date.now() -
+                            7 * 86400000 -
+                            new Date().getTimezoneOffset() * 60000,
+                        )
+                          .toISOString()
+                          .slice(0, 16)}
+                      />
+                    </Field>
+                    <Field label="To">
+                      <input
+                        name="end"
+                        type="datetime-local"
+                        required
+                        defaultValue={new Date(
+                          Date.now() -
+                            60000 -
+                            new Date().getTimezoneOffset() * 60000,
+                        )
+                          .toISOString()
+                          .slice(0, 16)}
+                      />
+                    </Field>
+                  </div>
+                  <Field label="Reason">
+                    <textarea
+                      name="reason"
+                      minLength={15}
+                      maxLength={2000}
+                      required
+                      placeholder="Describe the issue without copying private messages."
+                    />
+                  </Field>
+                  <div className="form-actions">
+                    <button
+                      type="button"
+                      className="button secondary"
+                      onClick={closeDialog}
+                    >
+                      Cancel
+                    </button>
+                    <Submit busy={busy}>File report</Submit>
+                  </div>
+                </Form>
               );
             })()}
           {dialog.type === "payment" && (
@@ -2927,7 +3880,7 @@ export default function App() {
                 <CreditCard size={18} />
                 <p>
                   Create a clear payment request for the agreed work. Your
-                  client will see it in Billing and on the project.
+                  client will see it in Billing and on the request.
                 </p>
               </div>
               <Field label="What is this payment for?">
@@ -3041,7 +3994,7 @@ export default function App() {
                 <Sparkles size={21} />
                 <p>
                   Your workspace brings every step together. Here’s how to try a
-                  complete project.
+                  complete request.
                 </p>
               </div>
               {[
@@ -3063,20 +4016,16 @@ export default function App() {
                 },
                 {
                   title: "5. Share something great",
-                  text: "The assistant uploads an output in the project details and selects Deliver output after all payments are paid.",
+                  text: "The assistant uploads an output in the request details and selects Deliver output after all payments are paid.",
                 },
                 {
                   title: "6. Review and leave feedback",
                   text: "The client downloads the work, approves delivery, and leaves a star rating. Admin sees the entire journey in Activity logs.",
                 },
               ].map((g) => (
-                <div className="guide-step" key={g.title}>
-                  <CircleCheck size={18} />
-                  <div>
-                    <h3>{g.title}</h3>
-                    <p>{g.text}</p>
-                  </div>
-                </div>
+                <details className="guide-accordion" key={g.title}>
+                  <summary>{g.title}</summary><p>{g.text}</p>
+                </details>
               ))}
               <div className="info-note">
                 <ShieldCheck size={18} />
@@ -3098,6 +4047,9 @@ export default function App() {
         <div
           className={`toast ${toast.error ? "error" : ""}`}
           role={toast.error ? "alert" : "status"}
+          aria-atomic="true"
+          onMouseEnter={() => setToastPaused(true)} onMouseLeave={() => setToastPaused(false)}
+          onFocus={() => setToastPaused(true)} onBlur={() => setToastPaused(false)}
         >
           {toast.error ? <CircleHelp size={19} /> : <CircleCheck size={19} />}
           <span>{toast.text}</span>
@@ -3134,7 +4086,7 @@ function Feedback({
       </span>
       <h3>Review your assistant’s service</h3>
       <p>
-        Your project is ready. If you’re happy with the output, close the
+        Your request is ready. If you’re happy with the output, close the
         request and let your assistant know how they did.
       </p>
       <div className="rating-stars" role="group" aria-label="Service rating">

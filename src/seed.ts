@@ -231,6 +231,7 @@ export function createSeed(): Workspace {
         notes: "Walk through our customer support workflow.",
       },
     ],
+    appointmentHistory: [],
     documents: [
       {
         id: "dddddddd-dddd-4ddd-8ddd-ddddddddddd1",
