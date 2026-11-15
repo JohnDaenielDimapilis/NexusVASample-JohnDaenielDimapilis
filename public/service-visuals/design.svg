@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" fill="none" aria-hidden="true">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="360" x2="640" y2="0" gradientUnits="userSpaceOnUse"><stop stop-color="#25145A"/><stop offset="1" stop-color="#8060CD"/></linearGradient>
+    <linearGradient id="screen" x1="0" y1="0" x2="340" y2="230" gradientUnits="userSpaceOnUse"><stop stop-color="#FFFDFE"/><stop offset="1" stop-color="#EADDF8"/></linearGradient>
+    <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="20" stdDeviation="18" flood-color="#140936" flood-opacity=".4"/></filter>
+  </defs>
+  <rect width="640" height="360" fill="url(#bg)"/>
+  <circle cx="568" cy="300" r="170" fill="#AB88E8" opacity=".17"/>
+  <path d="M0 68c124 77 206 12 328-33M377 328c97-47 177-31 263 18" stroke="#E9D7FD" stroke-opacity=".2" stroke-width="2"/>
+  <g filter="url(#shadow)" transform="rotate(-7 315 170)">
+    <rect x="118" y="56" width="390" height="257" rx="22" fill="#201041"/>
+    <rect x="129" y="67" width="368" height="235" rx="15" fill="url(#screen)"/>
+    <rect x="129" y="67" width="368" height="27" rx="15" fill="#D6C4F1"/>
+    <circle cx="149" cy="80" r="4" fill="#F78FB5"/><circle cx="164" cy="80" r="4" fill="#F5BE7C"/><circle cx="179" cy="80" r="4" fill="#A494E4"/>
+    <rect x="147" y="109" width="44" height="177" rx="9" fill="#E1D3F1"/>
+    <rect x="154" y="125" width="30" height="25" rx="6" fill="#8661CA"/>
+    <rect x="154" y="161" width="30" height="25" rx="6" fill="#C19DE9"/>
+    <rect x="154" y="197" width="30" height="25" rx="6" fill="#F4A2C2"/>
+    <rect x="208" y="109" width="269" height="176" rx="11" fill="#F9F5FF"/>
+    <circle cx="336" cy="194" r="71" fill="#C5ADF0"/>
+    <path d="m258 231 49-66 32 39 40-51 46 78" fill="#F49FC4"/>
+    <path d="m310 231 48-49 56 49" fill="#8A61CC"/>
+    <circle cx="290" cy="145" r="16" fill="#FFE6AA"/>
+  </g>
+  <g filter="url(#shadow)" transform="rotate(17 501 202)">
+    <rect x="479" y="82" width="20" height="198" rx="10" fill="#F5D4FE"/>
+    <path d="m479 270 10 29 10-29" fill="#E69BC2"/>
+    <rect x="479" y="92" width="20" height="16" fill="#A976D5"/>
+  </g>
+  <g filter="url(#shadow)"><rect x="39" y="231" width="116" height="82" rx="16" fill="#FEFAFF"/><circle cx="69" cy="264" r="13" fill="#F398BB"/><circle cx="105" cy="264" r="13" fill="#9D80DC"/><circle cx="69" cy="293" r="13" fill="#F7C37E"/><circle cx="105" cy="293" r="13" fill="#5B3BAD"/></g>
+</svg>

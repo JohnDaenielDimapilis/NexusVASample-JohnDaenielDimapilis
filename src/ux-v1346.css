@@ -1,0 +1,186 @@
+/* 1.3.4.6: interaction surfaces and layout refinements, shared by all roles. */
+.revision-v1346 { --ux-space: 20px; }
+.workspace-page-content { display: contents; }
+.workspace-page-content[hidden] { display: none; }
+#workflow-page:empty { display: none; }
+.revision-v1346 :is(.section-head,.owner-heading,.panel-head,.ticket-section-head) { gap: 12px 20px; }
+.revision-v1346 :is(.section-head,.owner-heading) { align-items: flex-start; flex-wrap: wrap; }
+.revision-v1346 .section-head > div:first-child { min-width: 0; flex: 1 1 240px; }
+.revision-v1346 .section-head > .upload-controls { flex: 0 1 auto; justify-content: flex-end; }
+.revision-v1346 .section-head .button { margin-top: 0; }
+.revision-v1346 :is(.panel-head,.table-toolbar,.ticket-section-head,.ticket-topline,.ticket-actions,.form-actions) { flex-wrap: wrap; }
+.revision-v1346 :is(.panel-head,.table-toolbar,.ticket-section-head) > div { min-width: 0; }
+.revision-v1346 :is(h1,h2,h3,strong,.badge,.breadcrumbs,.person-inline,.profile-detail,.appointment-info) { overflow-wrap: anywhere; }
+.revision-v1346 :is(.avatar,button > svg,a > svg,.badge > i) { flex-shrink: 0; }
+.revision-v1346 :is(.form-row,.ticket-facts,.ticket-facts > div,.field,.chat,.chat-head > div,.notification-item > div) { min-width: 0; }
+.revision-v1346 .form-row { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); }
+.revision-v1346 :is(.button,.icon-button,.appearance-switch,.account-button) { min-height: 40px; }
+.revision-v1346 .icon-button { min-width: 40px; }
+.revision-v1346 .button { white-space: normal; text-align: center; line-height: 1.45; }
+.revision-v1346 .field :is(input:not([type=radio]):not([type=checkbox]),select,textarea) { width: 100%; max-width: 100%; min-width: 0; min-height: 44px; }
+.revision-v1346 .field > span { line-height: 1.5; }
+.revision-v1346 .field small { line-height: 1.6; }
+.revision-v1346 textarea { resize: vertical; }
+.revision-v1346 :is(.table-scroll,.ops-board) { overscroll-behavior-x: contain; }
+.revision-v1346 .ops-summary { gap: 12px; border: 0; background: transparent; }
+.revision-v1346 .pagination { flex-wrap: wrap; gap: 12px; }
+.revision-v1346 .workspace-footer { flex-wrap: wrap; gap: 8px 20px; line-height: 1.6; }
+
+/* Raised material stays on containers. Flatten nested inputs so their edges align. */
+:root[data-design="neumorphism"] .revision-v1346 .input-prefix { display: flex; align-items: center; border: 1px solid var(--theme-border); background: var(--theme-input); border-radius: 8px; overflow: hidden; padding: 0 12px; gap: 8px; }
+:root[data-design="neumorphism"] .revision-v1346 .input-prefix input { border: 0 !important; box-shadow: none !important; background: transparent !important; padding-left: 0; }
+.revision-v1346 .input-prefix > span { padding-left: 0; }
+:root[data-design="neumorphism"] .revision-v1346 .input-prefix:focus-within { outline: 2px solid var(--neu-focus); outline-offset: 3px; }
+:root[data-design="neumorphism"] .revision-v1346 .input-prefix input:focus-visible { outline: none !important; }
+
+/* Drawers keep the source workspace visible. Only important decisions stay centered. */
+.revision-v1346 .drawer-backdrop { padding: 0; justify-content: flex-end; align-items: stretch; }
+:root[data-design="neumorphism"] .revision-v1346 .drawer-backdrop { backdrop-filter: none; background: color-mix(in srgb,var(--theme-overlay),transparent 48%); }
+:root[data-design="neumorphism"] .revision-v1346 .modal.drawer { width: min(660px,90vw); height: 100dvh; max-height: 100dvh; max-width: 100%; margin: 0; border-radius: 16px 0 0 16px; box-shadow: -8px 0 30px #130b2229 !important; }
+.revision-v1346 .modal { overscroll-behavior: contain; scrollbar-gutter: stable; }
+:root[data-design="neumorphism"] .revision-v1346 .modal-head { position: sticky; top: 0; z-index: 4; align-items: flex-start; padding: 20px 24px; background: var(--theme-surface) !important; border-bottom: 1px solid var(--theme-border); }
+.revision-v1346 .modal-head > div { min-width: 0; }
+.revision-v1346 .modal-head :is(h1,h2) { margin: 0; font-size: 20px; letter-spacing: -.45px; line-height: 1.4; color: var(--theme-text); }
+.revision-v1346 .modal-head p { margin: 6px 0 0; font-size: 12px; line-height: 1.65; }
+.revision-v1346 .modal-head > .icon-button { margin: 0; flex: 0 0 40px; }
+.revision-v1346 .modal > :is(.form,.guide,.ticket-detail,.appointment-detail,.assistant-profile-detail,.confirmation-content) { padding: 24px; }
+.revision-v1346 .modal .form-actions { position: static; margin-top: 8px; padding: 18px 0 0; background: transparent; border-top: 1px solid var(--theme-border); gap: 10px; }
+.revision-v1346 .modal .form { gap: 20px; }
+.revision-v1346 .ticket-detail > h2 { font-size: 23px; line-height: 1.4; }
+.revision-v1346 .ticket-description { line-height: 1.8; margin: 18px 0 24px; }
+.revision-v1346 .ticket-facts { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; padding: 16px; }
+.revision-v1346 .ticket-facts > div:last-child { grid-column: 1/-1; }
+.revision-v1346 .ticket-facts span:not(.avatar) { letter-spacing: 0; text-transform: none; }
+.revision-v1346 .ticket-facts strong { line-height: 1.55; }
+.revision-v1346 .ticket-payment { display: grid; grid-template-columns: 36px minmax(0,1fr) auto; gap: 10px; align-items: center; padding: 14px 0; }
+.revision-v1346 .ticket-payment > div { min-width: 0; }
+.revision-v1346 .ticket-payment > button { grid-column: 2/-1; justify-self: start; }
+.revision-v1346 :is(.ticket-file strong,.ticket-payment strong,.assistant-profile-top h2) { white-space: normal; overflow-wrap: anywhere; }
+.revision-v1346 .ticket-file > div { min-width: 0; }
+.revision-v1346 .ticket-file > .icon-button { flex-shrink: 0; }
+.revision-v1346 .assignment-form { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; }
+.revision-v1346 .assignment-form > .field { flex: 1 1 240px; }
+.revision-v1346 .assistant-profile-top { display: flex; gap: 14px; align-items: center; margin-bottom: 20px; }
+.revision-v1346 .assistant-profile-detail > p { line-height: 1.8; margin-block: 16px; }
+.revision-v1346 .assistant-profile-detail h3 { margin-top: 24px; }
+.revision-v1346 .checkout { padding: 24px; }
+.revision-v1346 .checkout-summary span { gap: 8px; flex-wrap: wrap; }
+.revision-v1346 .checkout > .button { width: 100%; }
+
+/* The brief gets a dedicated page, inside the normal application navigation. */
+:root[data-design="neumorphism"] .revision-v1346 .workflow-page.modal { width: min(100%,880px); max-width: 880px; max-height: none; overflow: visible; margin: 0 auto; box-shadow: none !important; border: 0; border-radius: 0; background: transparent !important; }
+:root[data-design="neumorphism"] .revision-v1346 .workflow-page .modal-head { position: static; padding: 0 0 24px; background: transparent !important; }
+.revision-v1346 .workflow-page .modal-head h1 { font-size: 28px; }
+.revision-v1346 .workflow-page > .form { padding: 24px; border: 1px solid var(--theme-border); border-radius: 12px; background: var(--theme-surface); }
+.revision-v1346 .difficulty-options { grid-template-columns: repeat(3,minmax(0,1fr)); }
+.revision-v1346 .difficulty-options label { min-width: 0; padding-right: 25px; }
+.revision-v1346 .difficulty-options small { line-height: 1.6; }
+
+/* Date settings and reference explanations expand beside their dashboard. */
+.revision-v1346 .inline-panel { padding: 20px; background: var(--theme-raised); color: var(--theme-text); border: 1px solid var(--theme-border); border-radius: 10px; min-width: 0; }
+.revision-v1346 .inline-panel > header { display: flex; justify-content: space-between; gap: 16px; align-items: start; margin-bottom: 18px; }
+.revision-v1346 .inline-panel > header h2 { margin: 0; font-size: 16px; line-height: 1.5; }
+.revision-v1346 .inline-panel > header p { font-size: 12px; line-height: 1.65; color: var(--theme-muted); margin: 5px 0 0; }
+:root[data-design="neumorphism"] .revision-v1346 .inline-panel :is(.owner-date-editor,.owner-date-definitions) { padding: 0; }
+.revision-v1346 .owner-date-editor { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+.revision-v1346 .owner-date-editor > label { flex: 1 1 200px; }
+.revision-v1346 .owner-date-editor > p { flex-basis: 100%; }
+.revision-v1346 .owner-date-editor > button { min-height: 44px; }
+.revision-v1346 .owner-filter-controls { flex-wrap: wrap; }
+.revision-v1346 .owner-dashboard .owner-active-range { flex: 1 1 180px; min-height: 40px; }
+.revision-v1346 .owner-preset { min-width: 165px; }
+.revision-v1346 .owner-preset select { min-height: 40px; }
+.revision-v1346 :is(.owner-panel,.owner-filters) { padding: 18px; }
+.revision-v1346 .owner-metrics { gap: 16px; }
+.revision-v1346 .owner-dashboard { gap: 18px; }
+.revision-v1346 .owner-metric > span { font-size: 12px; }
+.revision-v1346 .owner-metric > small { font-size: 11px; line-height: 1.6; padding-right: 12px; }
+.revision-v1346 .owner-panel-head { margin-bottom: 12px; flex-wrap: wrap; }
+.revision-v1346 :is(.role-record small,.role-action small,.owner-panel-head p,.owner-live-status,.role-reason,.role-fineprint,.role-timer small,.owner-data-note) { font-size: 12px; line-height: 1.65; }
+.revision-v1346 :is(.role-record strong,.role-action strong) { font-size: 13px; }
+.revision-v1346 .role-action { align-items: start; flex-wrap: wrap; }
+.revision-v1346 .role-action > div { flex: 1 1 240px; }
+.revision-v1346 .role-action > button { max-width: 100%; }
+.revision-v1346 :is(.owner-report-detail,.role-report-detail) { padding: 20px 24px 24px; }
+.revision-v1346 .owner-detail-row { flex-wrap: wrap; gap: 10px; }
+.revision-v1346 .owner-detail-row > div { min-width: 0; flex: 1 1 260px; }
+.revision-v1346 .guide-accordion { border-top: 1px solid var(--theme-border); }
+.revision-v1346 .guide-accordion summary { cursor: pointer; padding: 16px 0; font-weight: 600; color: var(--theme-text); }
+.revision-v1346 .guide-accordion p { margin: 0 0 18px; color: var(--theme-muted); line-height: 1.8; }
+
+/* Feedback never requires closing a success dialog. Errors remain near the task. */
+.revision-v1346 .inline-action-error { display: flex; align-items: start; gap: 10px; padding: 14px 16px; margin: 16px 24px 0; background: var(--neu-danger-bg); color: var(--neu-danger-text); border: 1px solid currentColor; border-radius: 8px; font-size: 13px; line-height: 1.65; overflow-wrap: anywhere; }
+.revision-v1346 .inline-action-error > svg { flex-shrink: 0; margin-top: 2px; }
+:root[data-design="neumorphism"] .revision-v1346 .toast { left: 20px; right: auto; bottom: 20px; transform: none; min-width: 0; width: max-content; max-width: min(430px,calc(100vw - 40px)); padding: 12px 14px; color: var(--theme-success-text); border-color: var(--theme-success-text); background: var(--theme-success-bg) !important; box-shadow: 0 4px 20px #100a2429 !important; align-items: start; }
+:root[data-design="neumorphism"] .revision-v1346 .toast.error { color: var(--neu-danger-text); background: var(--neu-danger-bg) !important; border-color: var(--neu-danger-text); }
+.revision-v1346 .toast > svg { margin-top: 7px; }
+.revision-v1346 .toast > span { align-self: center; overflow-wrap: anywhere; }
+.revision-v1346 .toast > button { flex-shrink: 0; width: 36px; height: 36px; align-items: center; justify-content: center; }
+.revision-v1346 .popover { max-width: calc(100vw - 32px); max-height: min(520px,calc(100dvh - 90px)); overflow-y: auto; overscroll-behavior: contain; }
+.revision-v1346 .popover-head { position: sticky; top: 0; z-index: 1; background: var(--theme-surface) !important; flex-wrap: wrap; gap: 8px; }
+.revision-v1346 .account-details > small { overflow-wrap: anywhere; }
+.revision-v1346 .time-entry-details { padding: 24px; }
+
+/* Calendar colours must follow the current appearance, including secondary labels. */
+.revision-v1346 .nexus-calendar :is(.calendar-intro h2,.fc,.calendar-upcoming h2,.fc-col-header-cell-cushion,.fc-daygrid-day-number) { color: var(--theme-text); }
+.revision-v1346 .nexus-calendar :is(.calendar-intro span,.calendar-intro p,.calendar-day-label,.calendar-note) { color: var(--theme-muted); }
+.revision-v1346 .nexus-calendar .fc { --fc-border-color: var(--theme-border); --fc-today-bg-color: var(--theme-accent-soft); --fc-neutral-bg-color: var(--theme-raised); }
+.revision-v1346 .nexus-calendar .fc-toolbar { flex-wrap: wrap; gap: 12px; }
+.revision-v1346 .nexus-calendar .calendar-intro { flex-wrap: wrap; align-items: start; }
+.revision-v1346 .nexus-calendar .calendar-intro p { text-align: left; }
+.revision-v1346 .privacy-heading { flex-wrap: wrap; gap: 16px; }
+.revision-v1346 .privacy-panel { min-width: 0; }
+.revision-v1346 .privacy-facts dd { min-width: 0; overflow-wrap: anywhere; }
+
+@media (max-width:1100px) {
+  .revision-v1346 .role-record > div { flex: 1 1 200px; }
+  .revision-v1346 .role-record { flex-wrap: wrap; }
+  .revision-v1346 .chat-head { flex-wrap: wrap; gap: 12px; }
+}
+@media (max-width:700px) {
+  .revision-v1346 .section-head > div:first-child { flex: 0 1 auto; width: 100%; }
+  .revision-v1346 :is(.owner-panel,.owner-filters) { padding: 16px; }
+  .revision-v1346 .owner-dashboard { gap: 16px; }
+  .revision-v1346 .owner-heading h1 { font-size: 24px; }
+  .revision-v1346 .owner-heading > button { flex-shrink: 1; }
+  .revision-v1346 .owner-filter-controls { display: flex; align-items: center; gap: 10px; }
+  .revision-v1346 .owner-preset { flex: 1 1 180px; }
+  .revision-v1346 .owner-dashboard .owner-active-range { order: 3; flex: 1 1 100%; }
+  .revision-v1346 .owner-filter-controls > .button { order: 4; flex: 1 1 auto; }
+  .revision-v1346 .owner-filter-controls > .owner-compare { order: 4; }
+  .revision-v1346 .owner-date-info { width: 44px; height: 44px; }
+  .revision-v1346 .owner-metrics { gap: 12px; }
+  .revision-v1346 .owner-dashboard .owner-metric { padding: 14px 12px 24px; min-height: 142px; }
+  .revision-v1346 .owner-metric > strong { font-size: 23px; overflow-wrap: anywhere; }
+  .revision-v1346 :is(.button,.icon-button,.appearance-switch,.account-button) { min-height: 44px; }
+  .revision-v1346 .icon-button { min-width: 44px; }
+  .revision-v1346 .topbar :is(.time-widget,.appearance-switch) { min-width: 44px; min-height: 44px; }
+  .revision-v1346 .form-row { grid-template-columns: minmax(0,1fr); }
+  .revision-v1346 .modal-backdrop { padding: 12px; }
+  .revision-v1346 .drawer-backdrop { padding: 0; }
+  :root[data-design="neumorphism"] .revision-v1346 .modal.drawer { width: 100%; border-radius: 0; }
+  .revision-v1346 .modal { max-height: calc(100dvh - 24px); }
+  :root[data-design="neumorphism"] .revision-v1346 .modal-head { padding: 16px; }
+  .revision-v1346 .modal > :is(.form,.guide,.ticket-detail,.appointment-detail,.assistant-profile-detail,.confirmation-content),.revision-v1346 :is(.checkout,.time-entry-details) { padding: 20px 16px; }
+  .revision-v1346 :is(.owner-report-detail,.role-report-detail) { padding: 16px; }
+  .revision-v1346 .ticket-actions > .button { flex: 1 1 100%; }
+  .revision-v1346 .ticket-facts { gap: 14px; }
+  .revision-v1346 .difficulty-options { grid-template-columns: 1fr; }
+  .revision-v1346 .difficulty-options > label { display: grid; grid-template-columns: 24px minmax(0,1fr); gap: 5px 12px; align-items: center; padding: 14px 36px 14px 14px; }
+  .revision-v1346 .difficulty-options small { grid-column: 2; }
+  .revision-v1346 .workflow-page .modal-head h1 { font-size: 25px; }
+  .revision-v1346 .workflow-page > .form { padding: 20px 16px; }
+  .revision-v1346 .inline-panel { padding: 16px; }
+  .revision-v1346 .inline-action-error { margin-inline: 16px; }
+  .revision-v1346 :is(.notifications,.account-popover) { position: fixed; top: 74px; right: 16px; max-height: calc(100dvh - 90px); }
+  :root[data-design="neumorphism"] .revision-v1346 .toast { top: auto; bottom: 16px; left: 16px; max-width: calc(100vw - 32px); }
+  .revision-v1346 .breadcrumbs { min-width: 0; }
+  .revision-v1346 .breadcrumbs strong { max-width: 32vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .revision-v1346 .chat-head .person-inline { min-width: 0; }
+}
+@media (max-width:400px) {
+  :root[data-design="neumorphism"] .revision-v1346 .topbar-right { gap: 8px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .revision-v1346 * { scroll-behavior: auto !important; }
+}

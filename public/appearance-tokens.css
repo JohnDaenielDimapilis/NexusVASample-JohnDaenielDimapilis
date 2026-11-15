@@ -1,0 +1,76 @@
+/* Nexus appearance tokens. Components below use semantic roles so both modes
+   share the same structure, spacing, and interaction behavior. */
+:root[data-appearance="light"] {
+  --theme-page: #faf9fc;
+  --theme-surface: #ffffff;
+  --theme-raised: #f5f2fa;
+  --theme-hover: #eee8f7;
+  --theme-input: #ffffff;
+  --theme-text: #2b203e;
+  --theme-muted: #625671;
+  --theme-border: #e3dbea;
+  --theme-subtle-border: #eee8f4;
+  --theme-accent: #5526ad;
+  --theme-accent-soft: #e9ddf8;
+  --theme-button: #5b2ac5;
+  --theme-button-hover: #4c21a7;
+  --theme-button-text: #ffffff;
+  --theme-sidebar: #2d1b61;
+  --theme-header: #ffffff;
+  --theme-feature: #f0e8fb;
+  --theme-feature-text: #2b1b50;
+  --theme-feature-muted: #5b4d6e;
+  --theme-chart-track: #e7dff0;
+  --theme-chart-fill: #7546bd;
+  --theme-success-bg: #e3f3e9;
+  --theme-success-text: #246243;
+  --theme-warning-bg: #f7eacc;
+  --theme-warning-text: #755018;
+  --theme-overlay: #160b3299;
+  --ink: var(--theme-text);
+  --secondary: var(--theme-muted);
+  --muted: var(--theme-muted);
+  --border: var(--theme-border);
+  --surface: var(--theme-surface);
+  --canvas: var(--theme-page);
+  --brand-atmosphere: var(--theme-page);
+  --brand-interactive: var(--theme-button);
+  --brand-interactive-hover: var(--theme-accent);
+}
+:root[data-appearance="dark"] {
+  --theme-page: #15101f;
+  --theme-surface: #211a31;
+  --theme-raised: #2e233f;
+  --theme-hover: #3b2b50;
+  --theme-input: #2e233f;
+  --theme-text: #f4effa;
+  --theme-muted: #c8bad7;
+  --theme-border: #514166;
+  --theme-subtle-border: #443552;
+  --theme-accent: #d6baff;
+  --theme-accent-soft: #46345f;
+  --theme-button: #7544c8;
+  --theme-button-hover: #9164df;
+  --theme-button-text: #ffffff;
+  --theme-sidebar: #171025;
+  --theme-header: #171025;
+  --theme-feature: #302045;
+  --theme-feature-text: #f7f2ff;
+  --theme-feature-muted: #dacbe9;
+  --theme-chart-track: #49395b;
+  --theme-chart-fill: #be9bef;
+  --theme-success-bg: #284938;
+  --theme-success-text: #bdebd0;
+  --theme-warning-bg: #51402e;
+  --theme-warning-text: #ffe0a0;
+  --theme-overlay: #090512bd;
+  --ink: var(--theme-text);
+  --secondary: var(--theme-muted);
+  --muted: var(--theme-muted);
+  --border: var(--theme-border);
+  --surface: var(--theme-surface);
+  --canvas: var(--theme-page);
+  --brand-atmosphere: var(--theme-page);
+  --brand-interactive: var(--theme-button);
+  --brand-interactive-hover: var(--theme-accent);
+}

@@ -1,0 +1,659 @@
+.time-widget {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 0 11px;
+  border: 1px solid var(--theme-border);
+  border-radius: 8px;
+  background: var(--theme-raised);
+  color: var(--theme-text);
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 600;
+}
+.time-widget.running {
+  background: var(--theme-success-bg);
+  color: var(--theme-success-text);
+}
+.time-widget:focus-visible {
+  outline: 2px solid var(--theme-accent);
+  outline-offset: 3px;
+}
+.time-admin-watch {
+  border: 1px solid var(--theme-border);
+  background: var(--theme-surface);
+  border-radius: 14px;
+  padding: 22px;
+  margin: 0 0 24px;
+  color: var(--theme-text);
+}
+.time-admin-watch > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.time-admin-watch > header > div {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+.time-watch-icon {
+  display: grid;
+  place-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: var(--theme-accent-soft);
+  color: var(--theme-accent);
+  flex-shrink: 0;
+}
+.app-shell .time-admin-watch h2 {
+  font-size: 17px;
+  color: var(--theme-text);
+  margin: 0 0 6px;
+}
+.app-shell .time-admin-watch p {
+  font-size: 11px;
+  line-height: 1.8;
+  color: var(--theme-muted);
+  margin: 0;
+}
+.time-watch-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin: 24px 0 20px;
+}
+.time-watch-metrics > div {
+  display: grid;
+  gap: 6px;
+  padding-left: 16px;
+  border-left: 2px solid var(--theme-border);
+}
+.app-shell .time-watch-metrics strong {
+  font-size: 25px;
+  line-height: 1.2;
+  color: var(--theme-text);
+}
+.time-watch-metrics span {
+  color: var(--theme-muted);
+  font-size: 10px;
+}
+.time-watch-actions {
+  display: grid;
+}
+.time-watch-actions > button {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 11px 0;
+  text-align: left;
+  border: 0;
+  border-top: 1px solid var(--theme-subtle-border);
+  color: var(--theme-text);
+  background: transparent;
+  font-size: 11px;
+}
+.time-watch-actions > button > svg {
+  color: var(--theme-accent);
+  flex-shrink: 0;
+}
+.time-watch-actions > button > svg:last-child {
+  margin-left: auto;
+}
+.app-shell .time-admin-watch .time-watch-note {
+  font-size: 10px;
+  margin-top: 13px;
+}
+.time-page .time-summary strong {
+  font-size: 19px;
+  font-variant-numeric: tabular-nums;
+}
+.time-roster {
+  margin-bottom: 28px;
+}
+.time-roster-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 15px;
+}
+.time-roster-grid article {
+  padding: 20px;
+  border: 1px solid var(--theme-border);
+  background: var(--theme-surface);
+  border-radius: 10px;
+}
+.time-roster-person {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.time-roster-person > div {
+  display: grid;
+  gap: 5px;
+}
+.time-roster-person strong {
+  font-size: 12px;
+}
+.time-roster-person > div > span {
+  font-size: 10px;
+  color: var(--theme-muted);
+}
+.time-presence {
+  margin-left: auto;
+  width: 8px;
+  height: 8px;
+  background: var(--theme-border);
+  border-radius: 50%;
+}
+.time-presence.running {
+  background: var(--theme-success-text);
+}
+.time-presence.paused {
+  background: var(--theme-warning-text);
+}
+.time-roster-grid article > p {
+  color: var(--theme-muted);
+  font-size: 11px;
+  line-height: 1.8;
+  margin: 14px 0 0;
+}
+.time-roster-bottom {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 15px;
+  padding-top: 12px;
+  border-top: 1px solid var(--theme-subtle-border);
+  font-size: 10px;
+}
+.time-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--theme-border);
+  margin: 24px 0;
+}
+.time-tabs button {
+  padding: 12px 13px;
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--theme-muted);
+  font-size: 12px;
+}
+.time-tabs button.active {
+  border-bottom-color: var(--theme-accent);
+  color: var(--theme-accent);
+  font-weight: 600;
+}
+.time-entries {
+  border: 1px solid var(--theme-border);
+  border-radius: 12px;
+  background: var(--theme-surface);
+  overflow: hidden;
+}
+.time-entry-row {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 2fr) minmax(90px, 0.6fr) minmax(90px, 0.6fr)
+    auto 17px;
+  gap: 18px;
+  align-items: center;
+  width: 100%;
+  padding: 20px;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--theme-subtle-border);
+  color: var(--theme-text);
+  text-align: left;
+  cursor: pointer;
+}
+.time-entry-row:last-child {
+  border-bottom: 0;
+}
+.time-entry-row:hover {
+  background: var(--theme-hover);
+}
+.time-entry-row > svg {
+  color: var(--theme-accent);
+}
+.time-entry-request {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.time-entry-request strong {
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.time-entry-request :is(small, span) {
+  color: var(--theme-muted);
+  font-size: 10px;
+  line-height: 1.7;
+}
+.time-entry-duration {
+  display: grid;
+  gap: 6px;
+}
+.time-entry-duration strong {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.time-entry-duration small {
+  color: var(--theme-muted);
+  font-size: 10px;
+}
+.time-start-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  gap: 35px;
+  padding: 28px;
+  border: 1px solid var(--theme-border);
+  border-radius: 12px;
+  background: var(--theme-surface);
+  margin-bottom: 28px;
+}
+.time-start-icon {
+  display: grid;
+  place-content: center;
+  width: 55px;
+  height: 55px;
+  color: var(--theme-accent);
+  background: var(--theme-accent-soft);
+  border-radius: 12px;
+  margin-bottom: 24px;
+}
+.time-start-copy h2 {
+  font-size: 24px;
+  line-height: 1.5;
+  margin: 0 0 14px;
+  max-width: 22ch;
+}
+.time-start-copy p {
+  color: var(--theme-muted);
+  font-size: 12px;
+  line-height: 1.9;
+  max-width: 48ch;
+}
+.time-start-form {
+  display: grid;
+  gap: 16px;
+}
+.time-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  color: var(--theme-muted);
+  font-size: 11px;
+  line-height: 1.8;
+}
+.time-consent input {
+  width: 16px;
+  height: 16px;
+  min-height: 16px;
+  margin-top: 3px;
+  flex-shrink: 0;
+  accent-color: var(--theme-button);
+}
+.time-clock-panel {
+  background: var(--theme-surface);
+  border: 1px solid var(--theme-border);
+  border-radius: 12px;
+  padding: 26px;
+  margin-bottom: 28px;
+}
+.time-clock-top {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  justify-content: space-between;
+}
+.time-clock-top > span:last-child {
+  color: var(--theme-muted);
+  font-size: 11px;
+}
+.time-clock-body {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 24px;
+  margin: 25px 0;
+}
+.time-clock-body h2 {
+  font-size: 19px;
+  margin: 0 0 8px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.time-clock-body p {
+  font-size: 11px;
+  color: var(--theme-muted);
+}
+.time-big-clock {
+  display: block;
+  font-size: clamp(30px, 4vw, 50px);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -1px;
+  color: var(--theme-accent);
+  margin: 23px 0 8px;
+}
+.time-clock-body small {
+  display: block;
+  color: var(--theme-muted);
+  font-size: 10px;
+  line-height: 1.8;
+}
+.time-clock-body dl {
+  display: grid;
+  align-content: center;
+  gap: 16px;
+  margin: 0;
+  padding-left: 24px;
+  border-left: 1px solid var(--theme-border);
+}
+.time-clock-body dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.time-clock-body dt {
+  font-size: 11px;
+  color: var(--theme-muted);
+}
+.time-clock-body dd {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.time-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+.time-page .time-policy-note,
+.time-entry-details .time-policy-note {
+  font-size: 10px;
+  line-height: 1.9;
+  color: var(--theme-muted);
+  margin: 17px 0 0;
+}
+.time-alert {
+  display: flex;
+  align-items: start;
+  flex-wrap: wrap;
+  gap: 8px;
+  background: var(--theme-warning-bg);
+  color: var(--theme-warning-text);
+  padding: 13px;
+  border-radius: 7px;
+  font-size: 11px;
+  line-height: 1.8;
+}
+.time-alert svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.time-rules {
+  margin-top: 26px;
+  padding: 20px;
+  border: 1px solid var(--theme-border);
+  border-radius: 10px;
+  background: var(--theme-surface);
+}
+.time-rules > summary {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  cursor: pointer;
+  color: var(--theme-accent);
+  font-size: 12px;
+  font-weight: 600;
+}
+.time-rules > div {
+  padding-top: 20px;
+}
+.time-rules ul {
+  padding-left: 20px;
+}
+.time-rules :is(li, p) {
+  font-size: 11px;
+  line-height: 1.9;
+  color: var(--theme-muted);
+}
+.time-entry-details {
+  padding: 24px;
+}
+.time-entry-details > h3 {
+  font-size: 16px;
+  margin: 0 0 10px;
+  line-height: 1.6;
+}
+.time-entry-details > p {
+  font-size: 11px;
+  color: var(--theme-muted);
+  line-height: 1.9;
+}
+.time-detail-totals {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  background: var(--theme-raised);
+  border: 1px solid var(--theme-border);
+  border-radius: 9px;
+  margin: 22px 0;
+  gap: 14px;
+  padding: 16px;
+}
+.time-detail-totals > div {
+  display: grid;
+  gap: 7px;
+}
+.time-detail-totals strong {
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+}
+.time-detail-totals span {
+  font-size: 10px;
+  color: var(--theme-muted);
+  line-height: 1.6;
+}
+.time-entry-details h4 {
+  font-size: 12px;
+  margin: 16px 0 10px;
+}
+.time-flags {
+  margin-bottom: 20px;
+}
+.time-flags > span {
+  display: inline-block;
+  color: var(--theme-warning-text);
+  background: var(--theme-warning-bg);
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-size: 10px;
+  margin: 0 6px 6px 0;
+}
+.time-entry-details form {
+  display: grid;
+  gap: 15px;
+  margin-top: 20px;
+}
+.time-entry-details form > .button {
+  justify-self: start;
+}
+.time-correction-form {
+  border-top: 1px solid var(--theme-border);
+  padding-top: 15px;
+}
+.time-entry-details
+  :is(
+    .time-correction-form p,
+    .time-work-summary p,
+    .time-correction-record p
+  ) {
+  font-size: 12px;
+  color: var(--theme-muted);
+  line-height: 1.9;
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.time-entry-details .time-success {
+  color: var(--theme-success-text);
+  padding: 12px;
+  background: var(--theme-success-bg);
+  border-radius: 6px;
+}
+.time-review-note {
+  padding: 12px;
+  background: var(--theme-raised);
+  border-radius: 6px;
+  overflow-wrap: anywhere;
+}
+.time-correction-record {
+  padding: 0 16px 16px;
+  background: var(--theme-raised);
+  border: 1px solid var(--theme-border);
+  border-radius: 8px;
+  margin-top: 24px;
+}
+.time-event-history {
+  border-top: 1px solid var(--theme-border);
+  margin-top: 24px;
+  padding-top: 20px;
+}
+.time-event-history summary {
+  font-size: 12px;
+  color: var(--theme-accent);
+  cursor: pointer;
+}
+.time-event-history ul {
+  padding-left: 16px;
+}
+.time-event-history li {
+  font-size: 11px;
+  color: var(--theme-muted);
+  line-height: 1.8;
+  margin: 12px 0;
+}
+.time-event-history li span {
+  font-size: 10px;
+}
+.time-event-history li p {
+  margin: 4px 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 1050px) {
+  .time-start-panel {
+    gap: 22px;
+    padding: 22px;
+  }
+  .time-entry-row {
+    grid-template-columns: minmax(0, 2fr) minmax(85px, 0.7fr) auto 17px;
+  }
+  .time-entry-row > .time-entry-duration:nth-child(3) {
+    display: none;
+  }
+  .time-detail-totals {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 700px) {
+  .time-start-panel {
+    grid-template-columns: 1fr;
+  }
+  .time-start-copy {
+    display: none;
+  }
+  .time-clock-body {
+    grid-template-columns: 1fr;
+  }
+  .time-clock-body dl {
+    padding-left: 0;
+    border: 0;
+  }
+  .time-clock-panel {
+    padding: 20px;
+  }
+  .time-watch-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .time-admin-watch {
+    padding: 18px;
+  }
+  .time-entry-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+    padding: 17px;
+  }
+  .time-entry-request {
+    grid-column: 1/-1;
+  }
+  .time-entry-row > .time-entry-duration:nth-child(3) {
+    display: grid;
+  }
+  .time-entry-row > svg {
+    display: none;
+  }
+  .time-entry-details {
+    padding: 18px;
+  }
+  .time-roster-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 580px) {
+  .revision-v1341 .topbar {
+    gap: 6px;
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+  .revision-v1341 .breadcrumbs {
+    flex: 1;
+    min-width: 0;
+  }
+  .revision-v1341 .breadcrumbs strong {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .revision-v1341 .topbar-right {
+    flex-shrink: 0;
+    gap: 6px;
+  }
+  .revision-v1341 .topbar .mobile-menu {
+    color: var(--theme-text);
+  }
+  .time-widget {
+    width: 38px;
+    min-width: 38px;
+    padding: 0;
+  }
+  .time-widget > span {
+    display: none;
+  }
+  .time-page .time-summary strong {
+    font-size: 16px;
+  }
+  .time-tabs {
+    gap: 0;
+  }
+  .time-tabs button {
+    font-size: 11px;
+    padding: 11px;
+  }
+}
