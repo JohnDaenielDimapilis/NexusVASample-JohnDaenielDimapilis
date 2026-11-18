@@ -37,7 +37,7 @@ describe("Additive operations access", () => {
     ).toBe(true);
   });
 
-  it("shows assistants open unassigned work without exposing another assistant's assigned work", () => {
+  it("keeps unassigned requests in the Admin queue, out of VA boards", () => {
     const state = createSeed();
     const assistant = state.profiles.find((p) => p.id === demoIds.staff)!;
     state.tickets.push({
@@ -47,14 +47,8 @@ describe("Additive operations access", () => {
       status: "Open",
     });
     const tickets = workForActor(state, assistant);
-    expect(tickets.some((t) => t.id === "available")).toBe(true);
-    expect(
-      tickets.every(
-        (t) =>
-          t.assigneeId === assistant.id ||
-          (!t.assigneeId && t.status === "Open"),
-      ),
-    ).toBe(true);
+    expect(tickets.some((t) => t.id === "available")).toBe(false);
+    expect(tickets.every((t) => t.assigneeId === assistant.id)).toBe(true);
   });
 
   it("does not grant work or CRM access to privacy roles or inactive accounts", () => {

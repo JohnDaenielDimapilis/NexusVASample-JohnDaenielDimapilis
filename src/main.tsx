@@ -14,6 +14,7 @@ import "./role-dashboard-v1345.css";
 import "./ux-v1346.css";
 import "./role-dashboard-v1347.css";
 import "./notifications-v1348.css";
+import "./workflow.css";
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <App />

@@ -1,5 +1,12 @@
 import { categories, difficulties, paymentSummary } from "./types";
 import { isNotificationCommand, updateNotifications } from "./notifications";
+import {
+  applyWorkflow,
+  guardWorkflow,
+  newWorkflow,
+  workflowActions,
+} from "./workflow";
+import type { WorkflowCommand } from "./workflow-types";
 import type {
   NotificationTarget,
   Command,
@@ -20,6 +27,9 @@ export function applyCommand(
     throw new Error("An active account is required.");
   if (isNotificationCommand(command))
     return updateNotifications(s, actor.id, command);
+  guardWorkflow(s, actor, command);
+  if (workflowActions.has(command.type))
+    return applyWorkflow(s, actor, command as WorkflowCommand);
   const now = new Date().toISOString();
   const notify = (userId: string, text: string, target: NotificationTarget) =>
     s.notifications.unshift({
@@ -52,6 +62,15 @@ export function applyCommand(
   const assign = (t: Ticket, p: Profile) => {
     t.assigneeId = p.id;
     t.status = "In progress";
+    if (t.workflow) {
+      t.workflow.assignedAt = now;
+      t.workflow.events.push({
+        id: uid(),
+        at: now,
+        actorId,
+        text: `Admin assigned ${p.name}; private conversation created`,
+      });
+    }
     notify(p.id, `You’ve been assigned to ${t.title}.`, {
       kind: "ticket",
       id: t.id,
@@ -68,7 +87,9 @@ export function applyCommand(
         throw new Error("Only clients can create requests.");
       if (
         command.title.trim().length < 5 ||
-        command.description.trim().length < 15
+        command.description.trim().length < 15 ||
+        command.title.length > 150 ||
+        command.description.length > 5000
       )
         throw new Error(
           "Add a title of at least 5 characters and a description of at least 15 characters.",
@@ -105,43 +126,18 @@ export function applyCommand(
         deliveredAt: null,
         rating: null,
         feedback: "",
+        workflow: newWorkflow(),
       };
       s.tickets.unshift(t);
-      s.payments.unshift({
-        id: uid(),
-        ticketId: t.id,
-        amount: t.budget,
-        description: `Initial service budget — ${t.title}`,
-        status: "Pending",
-        createdAt: now,
-        paidAt: null,
-      });
       log("Created a service request", t.id);
       s.profiles
-        .filter((p) => p.role === "staff" || p.role === "admin")
+        .filter((p) => p.role === "admin")
         .forEach((p) =>
           notify(p.id, `New request: ${t.title}.`, {
             kind: "ticket",
             id: t.id,
           }),
         );
-      break;
-    }
-    case "acceptTicket": {
-      const t = ticket(command.ticketId);
-      if (actor.role !== "staff" || t.assigneeId || t.status !== "Open")
-        throw new Error("This request is no longer available.");
-      if (
-        !actor.available ||
-        !actor.skills.includes(t.category) ||
-        difficulties.indexOf(actor.skillLevel) <
-          difficulties.indexOf(t.difficulty)
-      )
-        throw new Error(
-          "Your availability, service skills, and skill level must match this request.",
-        );
-      assign(t, actor);
-      log("Accepted the service request", t.id);
       break;
     }
     case "assignTicket": {
@@ -185,105 +181,6 @@ export function applyCommand(
         `New message on ${t.title}.`,
         { kind: "conversation", id: t.id },
       );
-      break;
-    }
-    case "createPayment": {
-      const t = ticket(command.ticketId);
-      if (!staff(t) || !t.assigneeId || t.status === "Completed")
-        throw new Error(
-          "Only the assigned assistant or admin can request payment.",
-        );
-      if (
-        !Number.isFinite(command.amount) ||
-        command.amount <= 0 ||
-        command.amount > 1000000 ||
-        !command.description.trim()
-      )
-        throw new Error("Enter a valid amount and payment description.");
-      if (s.payments.some((p) => p.ticketId === t.id && p.status !== "Paid"))
-        throw new Error(
-          "This request already has a payment awaiting completion.",
-        );
-      s.payments.unshift({
-        id: uid(),
-        ticketId: t.id,
-        amount: command.amount,
-        description: command.description.trim(),
-        status: "Pending",
-        createdAt: now,
-        paidAt: null,
-      });
-      systemMessage(
-        t,
-        `Payment requested: $${command.amount} — ${command.description.trim()}.`,
-      );
-      notify(t.clientId, `A payment is ready for ${t.title}.`, {
-        kind: "payment",
-        id: s.payments[0].id,
-      });
-      log("Created payment tracking", t.id);
-      break;
-    }
-    case "verifyPayment": {
-      const p = s.payments.find((p) => p.id === command.paymentId);
-      if (!p) throw new Error("Payment not found.");
-      const t = ticket(p.ticketId);
-      if (!staff(t) || p.status !== "Pending")
-        throw new Error("Only staff can verify a pending payment request.");
-      p.status = "Verified";
-      notify(t.clientId, `Payment verified and ready to pay: ${t.title}.`, {
-        kind: "payment",
-        id: p.id,
-      });
-      log("Verified payment request", t.id);
-      break;
-    }
-    case "pay": {
-      const p = s.payments.find((p) => p.id === command.paymentId);
-      if (!p) throw new Error("Payment not found.");
-      const t = ticket(p.ticketId);
-      if (
-        actor.id !== t.clientId ||
-        p.status === "Paid" ||
-        t.status === "Completed"
-      )
-        throw new Error("Only the client can pay an outstanding request.");
-      p.status = "Paid";
-      p.paidAt = now;
-      notify(t.clientId, `Test payment confirmed: ${t.title}.`, {
-        kind: "payment",
-        id: p.id,
-      });
-      if (t.assigneeId)
-        notify(t.assigneeId, `Payment received for ${t.title}.`, {
-          kind: "payment",
-          id: p.id,
-        });
-      if (!t.assigneeId) {
-        const p = s.profiles
-          .filter(
-            (p) =>
-              p.role === "staff" &&
-              p.status === "Active" &&
-              p.available &&
-              p.autoAssign &&
-              p.skills.includes(t.category) &&
-              difficulties.indexOf(p.skillLevel) >=
-                difficulties.indexOf(t.difficulty),
-          )
-          .sort(
-            (a, b) =>
-              s.tickets.filter(
-                (t) => t.assigneeId === a.id && t.status !== "Completed",
-              ).length -
-              s.tickets.filter(
-                (t) => t.assigneeId === b.id && t.status !== "Completed",
-              ).length,
-          )[0];
-        if (p) assign(t, p);
-      }
-      systemMessage(t, "Test payment confirmed. No real money was charged.");
-      log("Completed a simulated payment", t.id);
       break;
     }
     case "deliver": {

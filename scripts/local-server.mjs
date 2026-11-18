@@ -47,11 +47,11 @@ try {
     root: projectDirectory,
     mode: 'development',
     customLogger: logger,
-    server: { host: '127.0.0.1', port: 5189, strictPort: true },
+    server: { host: '127.0.0.1', port: 5190, strictPort: true },
   });
   await server.listen();
   writeFileSync(join(logDirectory, 'local-server.pid'), String(process.pid));
-  log('READY', 'http://127.0.0.1:5189/');
+  log('READY', 'http://127.0.0.1:5190/');
 } catch (error) {
   await stop(error instanceof Error ? error.stack : String(error), 1);
 }

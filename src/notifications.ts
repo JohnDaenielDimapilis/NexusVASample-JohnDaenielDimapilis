@@ -121,7 +121,7 @@ export function notificationDestination(
   const canTicket = (t: Ticket) =>
     actor.role === "admin" ||
     (actor.role === "client" && t.clientId === actor.id) ||
-    (actor.role === "staff" && (t.assigneeId === actor.id || !t.assigneeId));
+    (actor.role === "staff" && t.assigneeId === actor.id);
   const tickets = state.tickets.filter(canTicket);
   const participant = (t: Ticket) =>
     !!t.assigneeId &&

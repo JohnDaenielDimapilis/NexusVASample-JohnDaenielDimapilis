@@ -1,7 +1,15 @@
 # Change log
 
 Versions describe the application source. A release does not deploy the app.
-Payments remain simulated throughout Prototype 1.
+Demo payments remain sample records. Version 1.3.5 supports configured external payment methods with authorized Admin receipt confirmation; the app does not collect charges.
+
+## Test Version 1.3.5 - 2026-11-19
+
+- Client-to-Admin requests and PDF agreement return/approval/corrections before pricing.
+- Admin-set one-time/subscription billing, payment references, confirmation, receipts and guarded VA assignment.
+- Subscription periods, cancellation with paid-through access, manual renewals, failure/retry/refund records and duplicate protection.
+- Existing dashboards, Work board, Billing, notifications and conversations reused; row/storage policies and PostgreSQL tests extended.
+- Separate copy/launcher on port 5190. No live database/gateway deployment.
 
 ## Test Version 1.3.4.9 - 2026-11-15
 

@@ -1,3 +1,4 @@
+import { outstanding } from "./workflow";
 import type { Payment, Profile, Ticket, Workspace } from "./types";
 import type { TimeStore } from "./time-engine";
 import { reconcileEntry } from "./time-engine";
@@ -55,9 +56,7 @@ export function buildRoleReport(
   const overdue = due.filter(overdueDelivery);
   const allPayments =
     enabled && client
-      ? state.payments.filter(
-          (p) => owned.has(p.ticketId) && p.status !== "Paid",
-        )
+      ? state.payments.filter((p) => owned.has(p.ticketId) && outstanding(p))
       : [];
   const payments = allPayments
     .filter((p) => inRange(p.createdAt, range))

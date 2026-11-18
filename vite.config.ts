@@ -10,7 +10,9 @@ export default defineConfig(({ mode }) => {
     mode === "test" ? "development" : mode,
     root,
   );
-  const { version, displayVersion } = JSON.parse(readFileSync(`${root}/package.json`, "utf8"));
+  const { version, displayVersion } = JSON.parse(
+    readFileSync(`${root}/package.json`, "utf8"),
+  );
   let revision = "local";
   try {
     revision = execFileSync("git", ["rev-parse", "--short=7", "HEAD"], {
@@ -26,9 +28,13 @@ export default defineConfig(({ mode }) => {
     // Only our validated, public allowlist is inserted into the browser bundle.
     envPrefix: [],
     define: {
-      __APP_CONFIG__: JSON.stringify({ ...environment, version: displayVersion || version, revision }),
+      __APP_CONFIG__: JSON.stringify({
+        ...environment,
+        version: displayVersion || version,
+        revision,
+      }),
     },
-    server: { port: 5189, strictPort: true },
+    server: { port: 5190, strictPort: true },
     build: {
       outDir: `dist/${environment.environment}`,
       rollupOptions: {

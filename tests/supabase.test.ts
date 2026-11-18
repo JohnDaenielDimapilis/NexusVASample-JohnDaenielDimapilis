@@ -31,6 +31,65 @@ async function rows<T = Record<string, unknown>>(sql: string) {
   await db.exec("reset role");
   return (await db.query<T>(sql)).rows;
 }
+async function agreementPdf(who: "admin" | "client", ticketId: string) {
+  const id = crypto.randomUUID();
+  const path = `${ids[who]}/${id}/agreement.pdf`;
+  await db.exec("reset role");
+  await db.query(
+    `insert into storage.objects(bucket_id,name,owner_id) values('documents',$1,$2)`,
+    [path, ids[who]],
+  );
+  return {
+    id,
+    ownerId: ids[who],
+    ticketId,
+    name: "agreement.pdf",
+    size: 100,
+    type: "application/pdf",
+    path,
+    isOutput: false,
+  };
+}
+async function approveAndPrice(ticketId: string, subscription = false) {
+  await command("admin", { type: "reviewRequest", ticketId });
+  await command("admin", {
+    type: "sendAgreement",
+    ticketId,
+    document: await agreementPdf("admin", ticketId),
+  });
+  await command("client", {
+    type: "returnAgreement",
+    ticketId,
+    document: await agreementPdf("client", ticketId),
+    acknowledged: true,
+  });
+  await command("admin", { type: "approveAgreement", ticketId });
+  await command("admin", {
+    type: "setServicePrice",
+    ticketId,
+    amount: 220,
+    kind: subscription ? "Subscription" : "One-time",
+    frequency: "Monthly",
+    instructions: "Configured manual payment instructions",
+  });
+  return (
+    await rows<{ id: string }>(
+      `select id from public.payments where "ticketId"='${ticketId}' and status='Pending'`,
+    )
+  )[0].id;
+}
+async function confirmInvoice(
+  paymentId: string,
+  reference = crypto.randomUUID(),
+) {
+  await command("client", {
+    type: "submitPayment",
+    paymentId,
+    reference: "client-reference",
+    accepted: true,
+  });
+  await command("admin", { type: "confirmPayment", paymentId, reference });
+}
 beforeAll(async () => {
   db = new PGlite({ extensions: { btree_gist } });
   // Minimal Supabase-owned schemas only; the application migration runs unmodified.
@@ -58,6 +117,7 @@ beforeAll(async () => {
     "202611050001_privacy_roles.sql",
     "202611050002_private_review.sql",
     "202611150001_notification_actions.sql",
+    "202611180001_request_agreement_billing.sql",
   ]) {
     await db.exec(
       await readFile(
@@ -106,7 +166,7 @@ describe("Supabase migration and real PostgreSQL workflow", () => {
     );
     expect(p[0].role).toBe("client");
   });
-  it("creates a request and initial pending payment atomically", async () => {
+  it("creates a submitted request for Admin without a payment or VA assignment", async () => {
     await command("client", {
       type: "createTicket",
       title: "Create our content calendar",
@@ -118,11 +178,14 @@ describe("Supabase migration and real PostgreSQL workflow", () => {
     });
     const t = await rows<{ id: string }>("select id from public.tickets");
     ticketId = t[0].id;
-    const p = await rows<{ id: string; status: string }>(
-      "select id,status from public.payments",
+    expect(await rows("select * from public.payments")).toHaveLength(0);
+    await as("staff");
+    expect((await db.query("select * from public.tickets")).rows).toHaveLength(
+      0,
     );
-    paymentId = p[0].id;
-    expect(p[0].status).toBe("Pending");
+    expect(
+      (await db.query("select * from public.notifications")).rows,
+    ).toHaveLength(0);
   });
   it("enforces RLS for unrelated clients and prevents direct role or payment updates", async () => {
     await as("other");
@@ -136,25 +199,77 @@ describe("Supabase migration and real PostgreSQL workflow", () => {
       db.exec(`update public.profiles set role='admin'`),
     ).rejects.toThrow("permission denied");
     await expect(command("other", { type: "pay", paymentId })).rejects.toThrow(
-      "Only the client",
+      "Admin",
     );
     await as("client");
     await expect(
       db.exec(`update public.payments set status='Paid'`),
     ).rejects.toThrow("permission denied");
   });
-  it("automatically matches paid work to an available and skilled assistant", async () => {
-    await command("client", { type: "pay", paymentId });
-    const t = await rows<{ assigneeId: string; status: string }>(
-      'select "assigneeId",status from public.tickets',
+  it("requires signed agreement approval, explicit confirmation and Admin-only assignment", async () => {
+    await expect(
+      command("staff", { type: "acceptTicket", ticketId }),
+    ).rejects.toThrow("Only Admin");
+    await expect(
+      command("admin", { type: "assignTicket", ticketId, staffId: ids.staff }),
+    ).rejects.toThrow("Assignment requires");
+    await expect(
+      command("admin", {
+        type: "setServicePrice",
+        ticketId,
+        amount: 220,
+        kind: "One-time",
+        instructions: "Test payment instructions",
+      }),
+    ).rejects.toThrow("approve");
+    paymentId = await approveAndPrice(ticketId);
+    await expect(
+      command("client", {
+        type: "confirmPayment",
+        paymentId,
+        reference: "forged",
+      }),
+    ).rejects.toThrow("Admin");
+    await command("client", {
+      type: "submitPayment",
+      paymentId,
+      reference: "client-ref",
+      accepted: true,
+    });
+    await expect(
+      command("admin", { type: "assignTicket", ticketId, staffId: ids.staff }),
+    ).rejects.toThrow("Assignment requires");
+    await command("admin", {
+      type: "confirmPayment",
+      paymentId,
+      reference: "txn-main-123",
+    });
+    expect(
+      (
+        await rows<{ assigneeId: null }>(
+          'select "assigneeId" from public.tickets',
+        )
+      )[0].assigneeId,
+    ).toBeNull();
+    await expect(
+      command("admin", {
+        type: "confirmPayment",
+        paymentId,
+        reference: "txn-main-123",
+      }),
+    ).rejects.toThrow("submitted");
+    await command("admin", {
+      type: "assignTicket",
+      ticketId,
+      staffId: ids.staff,
+    });
+    await command("staff", { type: "startWork", ticketId });
+    const t = await rows<{ assigneeId: string }>(
+      `select "assigneeId" from public.tickets where id='${ticketId}'`,
     );
     expect(t[0].assigneeId).toBe(ids.staff);
-    expect(t[0].status).toBe("In progress");
-    await expect(command("client", { type: "pay", paymentId })).rejects.toThrow(
-      "outstanding",
-    );
   });
-  it("allows participants to message and creates staff payment tracking", async () => {
+  it("allows participant messaging and blocks old VA billing paths", async () => {
     await command("staff", {
       type: "sendMessage",
       ticketId,
@@ -167,20 +282,17 @@ describe("Supabase migration and real PostgreSQL workflow", () => {
         text: "Unrelated account",
       }),
     ).rejects.toThrow("Messages require");
-    await command("staff", {
-      type: "createPayment",
-      ticketId,
-      amount: 30,
-      description: "Additional agreed launch captions",
-    });
-    const p = await rows<{ id: string }>(
-      `select id from public.payments where status='Pending'`,
-    );
-    await command("staff", { type: "verifyPayment", paymentId: p[0].id });
     await expect(
-      command("staff", { type: "deliver", ticketId }),
-    ).rejects.toThrow("paid");
-    await command("client", { type: "pay", paymentId: p[0].id });
+      command("staff", {
+        type: "createPayment",
+        ticketId,
+        amount: 30,
+        description: "Additional work",
+      }),
+    ).rejects.toThrow("Admin");
+    await expect(
+      command("staff", { type: "verifyPayment", paymentId }),
+    ).rejects.toThrow("Admin");
     await expect(
       command("staff", { type: "deliver", ticketId }),
     ).rejects.toThrow("Upload");
@@ -268,11 +380,16 @@ describe("Supabase migration and real PostgreSQL workflow", () => {
       (await db.query("select * from public.appointments")).rows,
     ).toHaveLength(0);
     expect(
-      (await db.query("select * from public.documents")).rows,
+      (await db.query("select * from public.documents where purpose is null"))
+        .rows,
     ).toHaveLength(0);
-    expect((await db.query("select * from storage.objects")).rows).toHaveLength(
-      0,
-    );
+    expect(
+      (
+        await db.query(
+          "select * from storage.objects where name not in (select path from public.documents where purpose is not null)",
+        )
+      ).rows,
+    ).toHaveLength(0);
     expect(
       (await db.query("select * from public.visible_staff_settings()")).rows,
     ).toHaveLength(0);
@@ -296,7 +413,9 @@ describe("Supabase migration and real PostgreSQL workflow", () => {
       }),
     ).rejects.toThrow("Appointment not found");
     const document = (
-      await rows<{ id: string }>("select id from public.documents limit 1")
+      await rows<{ id: string }>(
+        "select id from public.documents where purpose is null limit 1",
+      )
     )[0];
     await expect(
       command("admin", { type: "reviewDocument", documentId: document.id }),
@@ -754,7 +873,6 @@ describe("Supabase migration and real PostgreSQL workflow", () => {
     ).rejects.toThrow("permission denied");
   });
 });
-
 describe("Connected notification actions through the existing RPC", () => {
   it("persists own read/unread and dismiss/restore, with ownership checks and no direct-write bypass", async () => {
     await db.exec("reset role");
@@ -913,6 +1031,8 @@ describe("Connected notification actions through the existing RPC", () => {
     expect(
       created.every((n) => n.target?.kind === "ticket" && n.target.id === t.id),
     ).toBe(true);
+    const approvedPayment = await approveAndPrice(t.id);
+    await confirmInvoice(approvedPayment);
     await command("admin", {
       type: "assignTicket",
       ticketId: t.id,
@@ -929,18 +1049,12 @@ describe("Connected notification actions through the existing RPC", () => {
       )
     )[0];
     expect(message.target).toEqual({ kind: "conversation", id: t.id });
-    const payment = (
-      await rows<{ id: string }>(
-        `select id from public.payments where "ticketId"='${t.id}'`,
-      )
-    )[0];
-    await command("staff", { type: "verifyPayment", paymentId: payment.id });
-    const p = (
-      await rows<{ target: { kind: string; id: string } }>(
-        "select target from public.notifications where text='Payment verified and ready to pay: Connected notification record links'",
-      )
-    )[0];
-    expect(p.target).toEqual({ kind: "payment", id: payment.id });
+    const confirmed = await rows<{ target: { kind: string; id: string } }>(
+      `select target from public.notifications where text='Connected notification record links: Admin confirmed receipt of payment'`,
+    );
+    expect(
+      confirmed.some((n) => n.target.kind === "ticket" && n.target.id === t.id),
+    ).toBe(true);
     await db.exec("reset role");
     const unlinked = (
       await db.query<{ target: unknown }>(
@@ -974,5 +1088,372 @@ describe("Connected notification actions through the existing RPC", () => {
       appointments.map((a) => a.id).sort(),
     );
     expect(notes.every((n) => n.target.kind === "appointment")).toBe(true);
+  });
+});
+describe("Request agreement and billing security", () => {
+  async function createRequest() {
+    await command("client", {
+      type: "createTicket",
+      title: `Approval test ${crypto.randomUUID()}`,
+      description: "A complete request awaiting Admin agreement and pricing.",
+      category: "Content & marketing",
+      budget: 220,
+      difficulty: "Medium",
+      dueDate: "2099-01-01",
+    });
+    return (
+      await rows<{ id: string }>(
+        "select id from public.tickets order by number desc limit 1",
+      )
+    )[0].id;
+  }
+  it("keeps submitted requests, agreements and invoices away from unrelated roles", async () => {
+    const tid = await createRequest();
+    const pid = await approveAndPrice(tid);
+    await as("staff");
+    expect(
+      (await db.query("select id from public.tickets where id=$1", [tid])).rows,
+    ).toHaveLength(0);
+    expect(
+      (await db.query("select id from public.payments where id=$1", [pid]))
+        .rows,
+    ).toHaveLength(0);
+    expect(
+      (
+        await db.query('select id from public.documents where "ticketId"=$1', [
+          tid,
+        ])
+      ).rows,
+    ).toHaveLength(0);
+    await as("admin");
+    expect(
+      (
+        await db.query('select id from public.documents where "ticketId"=$1', [
+          tid,
+        ])
+      ).rows,
+    ).toHaveLength(2);
+    expect(
+      (
+        await db.query(
+          'select name from storage.objects where name in (select path from public.documents where "ticketId"=$1)',
+          [tid],
+        )
+      ).rows,
+    ).toHaveLength(2);
+    await as("reviewer");
+    expect(
+      (await db.query("select id from public.payments where id=$1", [pid]))
+        .rows,
+    ).toHaveLength(0);
+    await as("client");
+    await expect(
+      db.query("select public.workspace_command_v1349($1::jsonb)", [
+        JSON.stringify({ type: "pay", paymentId: pid }),
+      ]),
+    ).rejects.toThrow("permission denied");
+  });
+  it("requires a real uploaded PDF object and explicit signature return, and preserves corrections", async () => {
+    const ticketId = await createRequest();
+    await command("admin", { type: "reviewRequest", ticketId });
+    const document = await agreementPdf("admin", ticketId);
+    await expect(
+      command("client", { type: "sendAgreement", ticketId, document }),
+    ).rejects.toThrow("Admin");
+    await expect(
+      command("admin", {
+        type: "sendAgreement",
+        ticketId,
+        document: {
+          ...document,
+          path: `${ids.admin}/${document.id}/missing.pdf`,
+        },
+      }),
+    ).rejects.toThrow("PDF");
+    await command("admin", { type: "sendAgreement", ticketId, document });
+    await command("client", { type: "readAgreement", ticketId });
+    const signed = await agreementPdf("client", ticketId);
+    await expect(
+      command("client", {
+        type: "returnAgreement",
+        ticketId,
+        document: signed,
+        acknowledged: false,
+      }),
+    ).rejects.toThrow("acknowledge");
+    await command("client", {
+      type: "returnAgreement",
+      ticketId,
+      document: signed,
+      acknowledged: true,
+    });
+    await command("admin", {
+      type: "correctAgreement",
+      ticketId,
+      reason: "Please sign on the final page.",
+    });
+    await expect(
+      command("admin", { type: "approveAgreement", ticketId }),
+    ).rejects.toThrow("returned");
+    await command("client", {
+      type: "returnAgreement",
+      ticketId,
+      document: await agreementPdf("client", ticketId),
+      acknowledged: true,
+    });
+    await command("admin", { type: "approveAgreement", ticketId });
+    const f = (
+      await rows<{ workflow: { agreement: { status: string } } }>(
+        `select workflow from public.tickets where id='${ticketId}'`,
+      )
+    )[0].workflow;
+    expect(f.agreement.status).toBe("Approved");
+    expect(
+      await rows(
+        `select id from public.documents where "ticketId"='${ticketId}'`,
+      ),
+    ).toHaveLength(3);
+  });
+  it("rejects reused transaction references, double confirmations and duplicate price setup", async () => {
+    const tid = await createRequest();
+    const pid = await approveAndPrice(tid);
+    await command("client", {
+      type: "submitPayment",
+      paymentId: pid,
+      reference: "client-ref",
+      accepted: true,
+    });
+    await expect(
+      command("admin", {
+        type: "confirmPayment",
+        paymentId: pid,
+        reference: " TXN-MAIN-123 ",
+      }),
+    ).rejects.toThrow("already");
+    await command("admin", {
+      type: "confirmPayment",
+      paymentId: pid,
+      reference: crypto.randomUUID(),
+    });
+    await expect(
+      command("admin", {
+        type: "confirmPayment",
+        paymentId: pid,
+        reference: crypto.randomUUID(),
+      }),
+    ).rejects.toThrow("submitted");
+    await expect(
+      command("admin", {
+        type: "setServicePrice",
+        ticketId: tid,
+        amount: 220,
+        kind: "One-time",
+        instructions: "Configured instructions",
+      }),
+    ).rejects.toThrow("locked");
+    expect(
+      await rows(`select id from public.payments where "ticketId"='${tid}'`),
+    ).toHaveLength(1);
+  });
+  it("handles failure and retry on one invoice, and refunds revoke assignment eligibility", async () => {
+    const tid = await createRequest();
+    const pid = await approveAndPrice(tid);
+    await command("admin", {
+      type: "resolvePayment",
+      paymentId: pid,
+      status: "Failed",
+      reason: "External payment declined",
+    });
+    await expect(
+      command("admin", {
+        type: "assignTicket",
+        ticketId: tid,
+        staffId: ids.staff,
+      }),
+    ).rejects.toThrow("Assignment requires");
+    await command("client", { type: "retryPayment", paymentId: pid });
+    await confirmInvoice(pid);
+    await command("admin", {
+      type: "resolvePayment",
+      paymentId: pid,
+      status: "Refunded",
+      reason: "Refund transaction REF-123 confirmed",
+    });
+    await expect(
+      command("admin", {
+        type: "assignTicket",
+        ticketId: tid,
+        staffId: ids.staff,
+      }),
+    ).rejects.toThrow("Assignment requires");
+    expect(
+      (
+        await rows<{ status: string }>(
+          `select status from public.payments where id='${pid}'`,
+        )
+      )[0].status,
+    ).toBe("Refunded");
+  });
+  it("cancels subscription renewals while retaining access through the paid period", async () => {
+    const tid = await createRequest();
+    const pid = await approveAndPrice(tid, true);
+    await confirmInvoice(pid);
+    await command("client", { type: "unsubscribe", ticketId: tid });
+    const b = (
+      await rows<{
+        workflow: {
+          billing: {
+            cancelAtPeriodEnd: boolean;
+            nextBillingDate?: string;
+            periodEnd: string;
+          };
+        };
+      }>(`select workflow from public.tickets where id='${tid}'`)
+    )[0].workflow.billing;
+    expect(b.cancelAtPeriodEnd).toBe(true);
+    expect(b.nextBillingDate).toBeUndefined();
+    expect(+new Date(b.periodEnd)).toBeGreaterThan(Date.now());
+    expect(
+      (
+        await rows<{ paid: boolean }>(
+          `select public.has_paid_service('${tid}') as paid`,
+        )
+      )[0].paid,
+    ).toBe(true);
+    await expect(
+      command("admin", { type: "issueRenewal", ticketId: tid }),
+    ).rejects.toThrow("renewal");
+    // Advance the owning records to an expired period without changing a production clock.
+    await rows(
+      `update public.tickets set workflow=jsonb_set(workflow,'{billing,periodEnd}',to_jsonb(now()-interval '1 second')) where id='${tid}'`,
+    );
+    expect(
+      (
+        await rows<{ paid: boolean }>(
+          `select public.has_paid_service('${tid}') as paid`,
+        )
+      )[0].paid,
+    ).toBe(false);
+  });
+  it("cancels a subscription before first payment and rejects a late confirmation", async () => {
+    const tid = await createRequest();
+    const pid = await approveAndPrice(tid, true);
+    await command("client", {
+      type: "submitPayment",
+      paymentId: pid,
+      reference: "client-ref",
+      accepted: true,
+    });
+    await command("client", { type: "unsubscribe", ticketId: tid });
+    await expect(
+      command("admin", {
+        type: "confirmPayment",
+        paymentId: pid,
+        reference: crypto.randomUUID(),
+      }),
+    ).rejects.toThrow("submitted");
+    await expect(
+      command("client", { type: "retryPayment", paymentId: pid }),
+    ).rejects.toThrow("cannot");
+    expect(
+      (
+        await rows<{ status: string }>(
+          `select status from public.payments where id='${pid}'`,
+        )
+      )[0].status,
+    ).toBe("Cancelled");
+  });
+  it("creates one unpaid renewal only after expiry and grants a new period after confirmation", async () => {
+    const tid = await createRequest();
+    const pid = await approveAndPrice(tid, true);
+    await confirmInvoice(pid);
+    await expect(
+      command("admin", { type: "issueRenewal", ticketId: tid }),
+    ).rejects.toThrow("renewal");
+    await rows(
+      `update public.tickets set workflow=jsonb_set(workflow,'{billing,periodEnd}',to_jsonb(now()-interval '1 second')) where id='${tid}'`,
+    );
+    await command("admin", { type: "issueRenewal", ticketId: tid });
+    await expect(
+      command("admin", { type: "issueRenewal", ticketId: tid }),
+    ).rejects.toThrow("renewal");
+    const next = (
+      await rows<{ id: string }>(
+        `select id from public.payments where "ticketId"='${tid}' and status='Pending'`,
+      )
+    )[0].id;
+    expect(
+      (
+        await rows<{ paid: boolean }>(
+          `select public.has_paid_service('${tid}') as paid`,
+        )
+      )[0].paid,
+    ).toBe(false);
+    await confirmInvoice(next);
+    expect(
+      (
+        await rows<{ paid: boolean }>(
+          `select public.has_paid_service('${tid}') as paid`,
+        )
+      )[0].paid,
+    ).toBe(true);
+    expect(
+      await rows(`select id from public.payments where "ticketId"='${tid}'`),
+    ).toHaveLength(2);
+    const clamped = (
+      await rows<{ ends: string }>(
+        "select public.billing_period_end('2028-01-31T10:00:00Z','Monthly') as ends",
+      )
+    )[0].ends;
+    expect(new Date(clamped).toISOString()).toBe("2028-02-29T10:00:00.000Z");
+  });
+  it("does not treat legacy paid estimates as payment of a new agreement", async () => {
+    const tid = await createRequest();
+    await rows(
+      `insert into public.payments("ticketId",amount,description,status,"paidAt") values('${tid}',20,'Legacy estimate','Paid',now())`,
+    );
+    await approveAndPrice(tid);
+    await expect(
+      command("admin", {
+        type: "assignTicket",
+        ticketId: tid,
+        staffId: ids.staff,
+      }),
+    ).rejects.toThrow("Assignment requires");
+  });
+});
+describe("Existing connected service transition", () => {
+  it("retains a legacy assignment and messages through agreement review and creates a separately scoped invoice", async () => {
+    const tid = (
+      await rows<{ id: string }>(
+        `insert into public.tickets("clientId","assigneeId",title,description,category,budget,difficulty,status,"dueDate") values('${ids.client}','${ids.staff}','Existing assigned service','This was assigned before the agreement workflow.','Content & marketing',220,'Medium','In progress','2099-01-01') returning id`,
+      )
+    )[0].id;
+    await rows(
+      `insert into public.payments("ticketId",amount,description,status,"paidAt") values('${tid}',220,'Legacy paid estimate','Paid',now())`,
+    );
+    const pid = await approveAndPrice(tid);
+    expect(
+      (
+        await rows<{ assigneeId: string }>(
+          `select "assigneeId" from public.tickets where id='${tid}'`,
+        )
+      )[0].assigneeId,
+    ).toBe(ids.staff);
+    expect(
+      (
+        await rows<{ paid: boolean }>(
+          `select public.has_paid_service('${tid}') as paid`,
+        )
+      )[0].paid,
+    ).toBe(false);
+    await confirmInvoice(pid);
+    expect(
+      (
+        await rows<{ paid: boolean }>(
+          `select public.has_paid_service('${tid}') as paid`,
+        )
+      )[0].paid,
+    ).toBe(true);
   });
 });

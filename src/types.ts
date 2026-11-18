@@ -1,3 +1,4 @@
+import type { RequestWorkflow, WorkflowCommand } from "./workflow-types";
 export type Role =
   | "client"
   | "staff"
@@ -7,7 +8,14 @@ export type Role =
   | "super_admin";
 export type Difficulty = "Easy" | "Medium" | "Hard";
 export type TicketStatus = "Open" | "In progress" | "In review" | "Completed";
-export type PaymentStatus = "Pending" | "Verified" | "Paid";
+export type PaymentStatus =
+  | "Pending"
+  | "Verified"
+  | "Awaiting confirmation"
+  | "Paid"
+  | "Failed"
+  | "Refunded"
+  | "Cancelled";
 export interface Profile {
   id: string;
   name: string;
@@ -22,6 +30,7 @@ export interface Profile {
   skills: string[];
 }
 export interface Ticket {
+  workflow?: RequestWorkflow;
   id: string;
   number: number;
   clientId: string;
@@ -47,6 +56,16 @@ export interface Message {
   system: boolean;
 }
 export interface Payment {
+  billingId?: string;
+  reference?: string;
+  confirmedBy?: string;
+  confirmationReference?: string;
+  receiptNumber?: string;
+  periodStart?: string;
+  periodEnd?: string;
+  submittedAt?: string;
+  resolutionReason?: string;
+  simulated?: boolean;
   id: string;
   ticketId: string;
   amount: number;
@@ -77,6 +96,7 @@ export interface AppointmentHistory {
   changedAt: string;
 }
 export interface Document {
+  purpose?: "agreement" | "signed-agreement";
   id: string;
   ownerId: string;
   ticketId: string | null;
@@ -120,6 +140,7 @@ export interface Workspace {
   audit: Audit[];
 }
 export type Command =
+  | WorkflowCommand
   | {
       type: "createTicket";
       title: string;
@@ -192,7 +213,7 @@ export const money = (value: number) =>
   new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
-    maximumFractionDigits: 0,
+    maximumFractionDigits: 2,
   }).format(value);
 export const initials = (name: string) =>
   name
@@ -202,8 +223,25 @@ export const initials = (name: string) =>
     .join("")
     .toUpperCase();
 export function paymentSummary(state: Workspace, ticketId: string) {
-  const rows = state.payments.filter((p) => p.ticketId === ticketId);
-  return rows.length && rows.every((p) => p.status === "Paid")
+  const b = state.tickets.find((t) => t.id === ticketId)?.workflow?.billing;
+  const rows = state.payments.filter(
+    (p) => p.ticketId === ticketId && (!b || p.billingId === b.id),
+  );
+  if (b) {
+    const latest = [...rows].sort((a, c) =>
+      c.createdAt.localeCompare(a.createdAt),
+    )[0];
+    if (
+      latest?.status === "Paid" &&
+      b.kind === "Subscription" &&
+      b.periodEnd &&
+      +new Date(b.periodEnd) <= Date.now()
+    )
+      return b.cancelledAt ? "Cancelled" : "Past due";
+    return latest?.status || "Pending";
+  }
+  const active = rows.filter((p) => p.status !== "Cancelled");
+  return active.length && active.every((p) => p.status === "Paid")
     ? "Paid"
     : rows.some((p) => p.status === "Verified")
       ? "Verified"

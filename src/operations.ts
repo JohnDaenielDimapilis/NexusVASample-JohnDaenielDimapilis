@@ -31,11 +31,7 @@ export function workForActor(state: Workspace, actor: Profile): Ticket[] {
   return state.tickets.filter((ticket) => {
     if (actor.role === "admin") return true;
     if (actor.role === "client") return ticket.clientId === actor.id;
-    if (actor.role === "staff")
-      return (
-        ticket.assigneeId === actor.id ||
-        (!ticket.assigneeId && ticket.status === "Open")
-      );
+    if (actor.role === "staff") return ticket.assigneeId === actor.id;
     return false;
   });
 }
@@ -87,7 +83,11 @@ export function clientAccounts(state: Workspace, actor: Profile) {
           (ticket) => !ticket.assigneeId && ticket.status !== "Completed",
         ).length,
         outstanding: payments
-          .filter((payment) => payment.status !== "Paid")
+          .filter((payment) =>
+            ["Pending", "Verified", "Awaiting confirmation"].includes(
+              payment.status,
+            ),
+          )
           .reduce((total, payment) => total + payment.amount, 0),
         paid: payments
           .filter((payment) => payment.status === "Paid")

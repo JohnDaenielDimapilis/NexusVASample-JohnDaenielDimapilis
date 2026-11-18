@@ -1,3 +1,4 @@
+import { outstanding } from "./workflow";
 import type { Payment, Ticket, Workspace } from "./types";
 import type { TimeStore } from "./time-engine";
 import { reconcileEntry } from "./time-engine";
@@ -178,7 +179,7 @@ export function buildOwnerReport(
   const unpaid = state.payments.filter(
     (p) =>
       ticketById.has(p.ticketId) &&
-      p.status !== "Paid" &&
+      outstanding(p) &&
       inRange(p.createdAt, range),
   );
   const overdue = due.filter(

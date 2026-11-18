@@ -96,7 +96,7 @@ export default function Auth({
         <footer>
           <span>Client · Assistant · Admin</span>
           <span title={buildLabel}>
-            NexusVA Test Version 1.3.4.9 · {versionLabel}
+            NexusVA Test Version 1.3.5 · {versionLabel}
           </span>
         </footer>
       </div>
@@ -212,7 +212,7 @@ export default function Auth({
             <span>
               {supabase
                 ? "Your account is protected with Supabase Auth."
-                : "Demo data stays in this browser. Payments are simulated; no real charges are made."}
+                : "Demo data stays in this browser. Payment references require Admin confirmation; no real charges are collected."}
             </span>
           </div>
         </div>

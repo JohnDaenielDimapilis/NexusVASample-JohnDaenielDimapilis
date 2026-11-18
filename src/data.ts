@@ -5,6 +5,7 @@ import { applyCommand, uid } from "./domain";
 import { demoIds } from "./seed";
 import { createReportingDemo } from "./reporting-demo";
 import { appConfig } from "./app-config";
+import { visibleWorkspace } from "./workflow";
 
 export const mode = appConfig.dataMode;
 export const supabase =
@@ -45,60 +46,7 @@ export async function loadWorkspace(): Promise<Workspace> {
     if (!identity) return full;
     const actor = full.profiles.find((profile) => profile.id === identity.id);
     if (!actor) return full;
-    const tickets = full.tickets.filter(
-      (ticket) =>
-        actor.role === "admin" ||
-        ticket.clientId === actor.id ||
-        ticket.assigneeId === actor.id ||
-        (actor.role === "staff" && !ticket.assigneeId),
-    );
-    const participantTickets = full.tickets.filter(
-      (ticket) =>
-        (actor.role === "client" && ticket.clientId === actor.id) ||
-        (actor.role === "staff" && ticket.assigneeId === actor.id),
-    );
-    const ticketIds = new Set(tickets.map((ticket) => ticket.id));
-    const participantIds = new Set(
-      participantTickets.map((ticket) => ticket.id),
-    );
-    return {
-      ...full,
-      profiles: full.profiles.map((profile) =>
-        actor.role === "admin"
-          ? { ...profile, available: false, autoAssign: false }
-          : profile,
-      ),
-      tickets,
-      messages: full.messages.filter((message) =>
-        participantIds.has(message.ticketId),
-      ),
-      payments: full.payments.filter((payment) =>
-        ticketIds.has(payment.ticketId),
-      ),
-      appointments: full.appointments.filter(
-        (appointment) =>
-          actor.role !== "admin" &&
-          (appointment.clientId === actor.id ||
-            appointment.staffId === actor.id),
-      ),
-      documents: full.documents.filter(
-        (document) =>
-          (document.ticketId === null && document.ownerId === actor.id) ||
-          (document.ticketId !== null && participantIds.has(document.ticketId)),
-      ),
-      notifications: full.notifications.filter(
-        (note) => note.userId === actor.id,
-      ),
-      audit:
-        actor.role === "admin"
-          ? full.audit.filter(
-              (entry) =>
-                !/^(Scheduled an appointment|Cancelled an appointment|Rescheduled an appointment|Marked an appointment|Updated appointment details|Uploaded |Reviewed )/i.test(
-                  entry.text,
-                ),
-            )
-          : [],
-    };
+    return visibleWorkspace(full, actor);
   }
   const names = [
     "profiles",
@@ -186,7 +134,7 @@ export async function identityFromSession(
 export function subscribe(onChange: () => void) {
   window.addEventListener("storage", onChange);
   window.addEventListener("nexus-change", onChange);
-  const interval = supabase ? window.setInterval(onChange, 15000) : null;
+  const interval = window.setInterval(onChange, supabase ? 15000 : 60000);
   return () => {
     window.removeEventListener("storage", onChange);
     window.removeEventListener("nexus-change", onChange);
@@ -268,7 +216,15 @@ export async function uploadFile(
     throw error;
   }
 }
-export async function downloadFile(document: Document) {
+async function storedDocumentBlob(document: Document) {
+  const current = await loadWorkspace();
+  if (
+    (!getDemoIdentity() && !supabase) ||
+    !current.documents.some(
+      (d) => d.id === document.id && d.path === document.path,
+    )
+  )
+    throw new Error("You do not have access to this document.");
   let blob: Blob;
   if (supabase) {
     const { data, error } = await supabase.storage
@@ -286,10 +242,80 @@ export async function downloadFile(document: Document) {
       { type: "text/plain" },
     );
   else blob = await readBlob(document.path);
+  return blob;
+}
+export async function documentPreviewUrl(document: Document) {
+  const blob = await storedDocumentBlob(document);
+  if (
+    !new TextDecoder()
+      .decode(await blob.slice(0, 5).arrayBuffer())
+      .startsWith("%PDF-")
+  )
+    throw new Error("This file is not a valid PDF.");
+  return URL.createObjectURL(new Blob([blob], { type: "application/pdf" }));
+}
+export async function downloadFile(document: Document) {
+  const blob = await storedDocumentBlob(document);
   const href = URL.createObjectURL(blob);
   const anchor = window.document.createElement("a");
   anchor.href = href;
   anchor.download = document.name;
   anchor.click();
   setTimeout(() => URL.revokeObjectURL(href), 1000);
+}
+
+export async function uploadAgreement(
+  file: File,
+  actor: Profile,
+  ticketId: string,
+  signed: boolean,
+  acknowledged = false,
+) {
+  if (
+    !file.name.toLowerCase().endsWith(".pdf") ||
+    file.size <= 0 ||
+    file.size > 10485760 ||
+    !new TextDecoder()
+      .decode(await file.slice(0, 5).arrayBuffer())
+      .startsWith("%PDF-")
+  )
+    throw new Error("Select a valid PDF file up to 10 MB.");
+  const id = uid();
+  const path = `${actor.id}/${id}/${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+  const document: Document = {
+    id,
+    ownerId: actor.id,
+    ticketId,
+    name: file.name,
+    size: file.size,
+    type: "application/pdf",
+    path,
+    createdAt: new Date().toISOString(),
+    reviewed: false,
+    isOutput: false,
+    purpose: signed ? "signed-agreement" : "agreement",
+  };
+  if (supabase) {
+    const { error } = await supabase.storage
+      .from("documents")
+      .upload(path, file, { upsert: false, contentType: "application/pdf" });
+    if (error) throw error;
+  } else await saveBlob(path, file);
+  try {
+    return await runCommand(actor.id, {
+      type: signed ? "returnAgreement" : "sendAgreement",
+      ticketId,
+      document,
+      acknowledged,
+    });
+  } catch (error) {
+    if (supabase) await supabase.storage.from("documents").remove([path]);
+    else {
+      const db = await blobDb();
+      const tx = db.transaction("files", "readwrite");
+      tx.objectStore("files").delete(path);
+      tx.oncomplete = () => db.close();
+    }
+    throw error;
+  }
 }

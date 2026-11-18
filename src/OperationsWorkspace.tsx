@@ -15,7 +15,8 @@ import {
 import { Avatar, Badge, Empty, SectionHead } from "./components";
 import { companyName } from "./brand-config";
 import { mode } from "./data";
-import { money } from "./types";
+import { money, paymentSummary } from "./types";
+import { requestStage } from "./workflow";
 import type { Profile, Ticket, Workspace } from "./types";
 import {
   clientAccounts,
@@ -27,7 +28,6 @@ import {
   workStatuses,
 } from "./operations";
 import type { WorkFilter } from "./operations";
-
 type WorkspaceProps = {
   state: Workspace;
   actor: Profile;
@@ -42,7 +42,6 @@ const statusLabel = (status: string) =>
   status === "In review" ? "Client review" : status;
 const statusClass = (status: string) =>
   status.toLowerCase().replaceAll(" ", "-");
-
 function WorkCard({
   ticket,
   state,
@@ -67,6 +66,13 @@ function WorkCard({
       <strong className="ops-work-title">{ticket.title}</strong>
       <span className="ops-work-client">
         {companyName(client?.company || "") || client?.name || "Client"}
+      </span>
+      <span className="wf-card-status">
+        <Badge>{requestStage(state, ticket)}</Badge>
+        <span>
+          {ticket.workflow?.agreement.status || "Existing agreement record"} ·{" "}
+          {paymentSummary(state, ticket.id)}
+        </span>
       </span>
       <span className="ops-card-footer">
         <span className={isOverdue(ticket) ? "ops-due overdue" : "ops-due"}>
@@ -95,7 +101,6 @@ function WorkCard({
     </button>
   );
 }
-
 export function WorkBoard({
   state,
   actor,
@@ -151,7 +156,7 @@ export function WorkBoard({
           actor.role === "admin"
             ? "See the handoffs, deadlines, and people behind every request."
             : actor.role === "staff"
-              ? "Your assignments and the open requests you can pick up."
+              ? "Your Admin-assigned services, agreements, payments and delivery details."
               : "Follow your requests from the first brief to the final delivery."
         }
         action={
@@ -248,7 +253,6 @@ export function WorkBoard({
             >
               <option value="">All visible requests</option>
               <option value="mine">Assigned to me</option>
-              <option value="available">Unassigned requests</option>
             </select>
           </label>
         )}
@@ -365,7 +369,6 @@ export function WorkBoard({
     </div>
   );
 }
-
 export function ClientDirectory({
   state,
   actor,
@@ -633,7 +636,6 @@ export function ClientDirectory({
     </div>
   );
 }
-
 export function ServiceTemplates({ onUse }: { onUse: (id: string) => void }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("");

@@ -1,71 +1,54 @@
-# NexusVA - Test Version 1.3.4.9
+# NexusVA - Test Version 1.3.5
 
-This branch proposes the cumulative NexusVA changes through **1.3.4.9** for review. It is based on this repository's `main` at **0.2.0** (`269e6e1`). Opening this pull request does not merge, deploy, or change the running application or an external database.
+Admin-controlled requests, signed agreements, service pricing, payments, subscriptions and VA assignment, integrated into the existing dashboards, Requests, Work board, Billing and private conversations. Based on Seperoth/main at `d9a552b` (1.3.4.9). Previous copies and histories are preserved.
 
-## Latest update: 1.3.4.9
+## Run locally
 
-Removed the shared header's **Workspace > current page** breadcrumb, including the Messages label shown in the reference. The mobile navigation button, header controls, page headings, sidebar, existing spacing and styling are retained. This revision changes three rendered breadcrumb elements; it does not change notification handlers, business logic, integrations or CSS.
-
-![Messages after breadcrumb removal](docs/ui-review/latest-1.3.4.9-messages.jpg)
-
-See [revision 1.3.4.9](REVISION-1.3.4.9.md) and [its validation record](VALIDATION-1.3.4.9.md).
-
-## Additions since the last update on main
-
-The previous `main` is 0.2.0, so this PR contains more than the latest header change:
-
-| Area | Behavior available in 1.3.4.9 |
-| --- | --- |
-| Appearance and layout | Nexus branding, persistent light/dark appearance, shared neumorphic styling, responsive workspace layouts and contextual feedback. |
-| Owner dashboard | Business summaries, actionable decision lists, period presets/custom dates, optional comparison and scoped CSV export. |
-| Client and VA dashboards | Compact date filters without Compare; role-specific summaries with date definitions; current work, deadlines and handovers stay visible across historical filters. The VA dashboard has no Reply needed panel. |
-| Work management | Role-scoped work board, Admin client directory and request templates, using existing request/payment/delivery flows. |
-| Time and attendance | Task-linked clock-in/out, breaks, idle/sleep checks, scheduled clock-out and unverified-time flags. VA status is read-only; only Admin manages corrections, review, verification and tracking rules. |
-| Notifications (1.3.4.8) | Clickable actual-record destinations, read/unread controls, snapshot-based Mark all read, reversible dismissal/restore, immediate status updates, error/retry feedback and keyboard/touch interaction. |
-| Automatic notification updates | Existing local browser/change events, including other tabs; connected Supabase retains its 15-second polling. Ambiguous legacy notifications open a relevant list or their actual details. |
-| Privacy oversight | Case-based, approved and audited review of conversations/attachments and historical schedules. Operational Admin status alone does not grant direct private-message/calendar access. |
-| Header (1.3.4.9) | Breadcrumb labels/separator removed while retaining the existing header and mobile menu. |
-
-Release details: [1.3.4.7 dashboards and attendance](REVISION-1.3.4.7.md), [1.3.4.8 notifications](REVISION-1.3.4.8.md), [change log](CHANGELOG.md), and [prior 0.2.0 README](docs/README-0.2.0.md). Earlier Git history and release tags are preserved.
-
-## Run this branch locally
-
-Requires Node.js **22.18+** and npm:
+Requires Node.js 22.18+ and npm.
 
 ```sh
-git fetch origin
-git switch codex/nexusva-1.3.4.9-review
 npm ci
-npm run dev
+npm run start:local
 ```
 
-Open **http://127.0.0.1:5189/**. If another 1.3.4.9 preview is already using that port, run `npm run dev -- --port 5190` and open the printed URL. On Windows, `Open Nexus VA.cmd` starts the existing background launcher on port 5189.
+Open **http://127.0.0.1:5190/**, or double-click **Open Nexus VA.cmd** on Windows after installing dependencies. Version 1.3.4.9 can remain available on port 5189.
 
-With no Supabase settings, choose Client (Alex), VA (Maya) or Admin (Jordan) from the demo sign-in page. Switch roles from the Account menu. Sample records stay in browser storage for that origin. Do not enter real personal or financial data into the demo.
+Without Supabase configuration, choose a demo Client, VA or Admin account; switch roles from Account. Demo data/PDFs stay in this browser. Demo role switching and local storage are not a security boundary. Use sample information.
 
-## Reviewer checklist
+## Request to payment
 
-- Open Messages on desktop and mobile: the breadcrumb is absent, the real page heading remains, and the mobile menu opens/closes.
-- Open notifications: select a notice to view the linked request/conversation, toggle read/unread, dismiss it, then restore it. Changes should persist after reload.
-- Compare Client/VA dashboard date ranges: cards change for the selected period while current actions remain available; neither role has Compare.
-- Switch to VA: check clock-in/break/resume/out and read-only verification status. Switch to Admin to review/manage ended time entries. Review flags and deliverables rather than treating browser activity as proof of productivity.
-- Follow a request through assignment, participant messages, simulated payment, delivery and Client approval. Privacy/ownership checks should still apply.
+1. Client submits a request and estimated budget. Only Admin receives it; no invoice, VA assignment or conversation is created yet.
+2. Admin opens it, selects **Start Admin review** and uploads the agreement PDF (up to 10 MB).
+3. Client views/downloads the PDF, signs it outside the app, acknowledges the signed copy and uploads it. No signature/approval is inferred. The integrated viewer supports page navigation and accessible page text.
+4. Admin reviews the returned file, requests corrections if needed and explicitly approves it. File revisions and workflow events are retained.
+5. Admin sets the final price, one-time/subscription arrangement, frequency and configured payment instructions. The agreed price is locked and one invoice is created. Client reviews the terms before submitting a payment reference.
+6. Payment stays **Awaiting confirmation** until Admin independently checks the payment account and records a transaction reference. Client confirmation cannot mark it paid. A receipt becomes downloadable after confirmation.
+7. Admin assigns an active VA only after agreement approval and confirmed, current payment. Assignment creates the private request conversation. The VA sees the task, deadline, agreements, payment status, files and work details on Work board. Client delivery review/rating completes the service.
+
+Progress includes submission, Admin review, agreement sent/signature/review/corrections/approval, payment, assignment, work, delivery review and completion. Operational work status and subscription billing status remain separate.
+
+## Subscriptions and payment results
+
+Subscriptions display amount, frequency, next billing and paid-through date. They use recurring invoices with the configured method. This release does **not** store cards, collect charges or automatically debit renewals. After a period ends, Admin can issue one renewal invoice. A new paid period begins only on confirmed payment. Month ends are clamped in UTC.
+
+The client's **Unsubscribe** control explains the end date, asks for confirmation, cancels pending renewals and retains access until the paid period ends. It remains available in request details and Billing after task completion. An authorized current-period refund ends subscription entitlement. No renewal invoice can be issued after cancellation.
+
+Failed/cancelled invoices can be retried without creating another invoice. Submitted, failed, cancelled, refunded and paid outcomes remain separate. Admin records external refunds; the app does not execute them. Unique transaction references, serialized changes, one outstanding invoice and locked pricing guard duplicate records. Legacy paid estimates do not satisfy a new billing arrangement.
+
+## Existing services and privacy
+
+Earlier records remain history; no agreement or payment is manufactured. Admin can explicitly begin agreement review for an unfinished existing service while retaining its VA/conversation. Unpaid estimates are cancelled when replaced; paid history is preserved and scoped separately. Delivery is gated once the new workflow begins. Reassignment is blocked to protect the earlier private conversation.
+
+Only the client, Admin and assigned VA can access a request's agreements/billing. Other VAs cannot browse unassigned requests. Admin oversees every request/agreement/invoice/subscription/assignment, while conversation contents, ordinary private files and historical calendars retain case-review controls. Connected mode enforces these rules through the RPC and row/storage policies.
+
+## Connected setup
+
+Apply only unapplied migrations in order, including **supabase/migrations/202611180001_request_agreement_billing.sql**, after the four earlier migrations listed in [the previous README](docs/README-1.3.4.9.md). Follow [environment setup](docs/WORKFLOW.md). Deploy the matching frontend/migration together. No live migration, Supabase project, gateway, email or production deployment was configured by this change.
+
+The supported path is a configured external payment method plus authorized Admin confirmation. Automatic gateway collection requires a separate server-side integration with signed provider webhooks and provider idempotency. The optional payment-email function distinguishes legacy simulated records from Admin-confirmed receipts; delivery requires its existing configuration.
 
 ## Validation
 
-`npm run check` runs the automated tests, TypeScript and the development build. The source revision passed **101 tests across 8 files**, type checking and the development build. Tests include the full migration chain in local PGlite, workflow/privacy permissions, notification ownership/targets/status, reporting and attendance rules. [Browser validation](VALIDATION-1.3.4.9.md) covers the latest header change, notification control and mobile navigation. The main bundle has an existing nonfatal size advisory around 507 KB.
+`npm run check` passes **120 tests across 9 files**, TypeScript and the development build. Coverage includes the complete migration chain in local PostgreSQL/PGlite, RLS/storage access, correction/resubmission, assignment gates, duplicate references, retry/refund, subscription expiry/cancellation/renewal and legacy transitions. Browser checks covered all three roles, PDF rendering/download, receipts, Work board, conversation and mobile navigation. The main bundle retains a nonfatal size advisory; PDF viewer/worker load on demand.
 
-These checks do not establish live Supabase, provider email/payment integration, production deployment or a full accessibility/device audit.
-
-## Connected backend and limits
-
-The demo works without a backend. For an existing connected environment, review and apply **only unapplied** migrations in chronological order:
-
-1. `supabase/migrations/202610270001_workspace.sql`
-2. `supabase/migrations/202611050001_privacy_roles.sql`
-3. `supabase/migrations/202611050002_private_review.sql`
-4. `supabase/migrations/202611150001_notification_actions.sql`
-
-The privacy migrations change access boundaries. The notification migration adds target metadata, dismissal and own-user notification commands while retaining the existing public RPC and RLS. No migration was applied to a live database as part of this PR. Follow [environment setup](docs/WORKFLOW.md); only public anon/publishable keys belong in frontend configuration. Credentials and non-example environment files are excluded from Git.
-
-**Payments remain simulated. Attendance remains browser-local:** device time and in-app activity cannot verify productivity or work in Excel, calls or other apps. Server-authoritative attendance/production payroll integration is not implemented. Connected attendance stays unavailable until that integration exists. External messaging, email and payment-provider delivery require their own configuration and live verification. No deployment is included.
+See [revision notes](REVISION-1.3.5.md), [validation details](VALIDATION-1.3.5.md) and [the previous release](docs/README-1.3.4.9.md).

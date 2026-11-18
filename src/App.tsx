@@ -48,17 +48,36 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import type { ColumnDef } from "@tanstack/react-table";
 import Auth from "./Auth";
+import {
+  RequestWorkflowPanel,
+  PaymentReview,
+  SubscriptionSummary,
+  WorkflowOverview,
+} from "./RequestWorkflow";
+import { requestStage, outstanding } from "./workflow";
 import { NotificationCenter } from "./NotificationCenter";
 import { ownedNotifications, updateNotifications } from "./notifications";
-import type { NotificationCommand, NotificationDestination } from "./notifications";
+import type {
+  NotificationCommand,
+  NotificationDestination,
+} from "./notifications";
 import { OwnerDashboard } from "./OwnerDashboard";
 import { RoleDashboard } from "./RoleDashboard";
-import { WorkBoard, ClientDirectory, ServiceTemplates } from "./OperationsWorkspace";
+import {
+  WorkBoard,
+  ClientDirectory,
+  ServiceTemplates,
+} from "./OperationsWorkspace";
 import { requestTemplates } from "./operations";
 import { useTimeTracking } from "./use-time-tracking";
 import { ClockWidget, TimeWorkspace } from "./TimeWorkspace";
 import { AppearanceSwitch } from "./AppearanceSwitch";
-import { initialAppearance, saveAppearance, savedAppearance, systemAppearance } from "./appearance";
+import {
+  initialAppearance,
+  saveAppearance,
+  savedAppearance,
+  systemAppearance,
+} from "./appearance";
 import type { Appearance } from "./appearance";
 import { PrivacyDesk, PrivacyWorkspace } from "./PrivacyDesk";
 import { brand, companyName } from "./brand-config";
@@ -93,6 +112,7 @@ import {
   subscribe,
   supabase,
   uploadFile,
+  uploadAgreement,
 } from "./data";
 import type { Identity } from "./data";
 import { categories, difficulties, money, paymentSummary } from "./types";
@@ -230,10 +250,9 @@ export default function App() {
   useEffect(() => {
     document.documentElement.dataset.appearance = appearance;
     document.documentElement.style.colorScheme = appearance;
-    document.querySelector('meta[name="theme-color"]')?.setAttribute(
-      "content",
-      appearance === "dark" ? "#15101F" : "#2D1B61",
-    );
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute("content", appearance === "dark" ? "#15101F" : "#2D1B61");
   }, [appearance]);
   useEffect(() => {
     const media = window.matchMedia?.("(prefers-color-scheme: dark)");
@@ -252,22 +271,29 @@ export default function App() {
   const notificationRefreshQueued = useRef(false);
   const notificationIdentity = useRef(identity?.id);
   notificationIdentity.current = identity?.id;
-  const showToast = useCallback(
-    (text: string, error = false) => { setToastPaused(false); setToast({ text, error }); },
-    [],
-  );
+  const showToast = useCallback((text: string, error = false) => {
+    setToastPaused(false);
+    setToast({ text, error });
+  }, []);
   const refresh = useCallback(async function refreshWorkspace() {
     const revision = notificationRevision.current;
     const actorId = notificationIdentity.current;
     try {
       const next = await loadWorkspace();
       if (actorId !== notificationIdentity.current) return;
-      const staleNotifications = notificationPending.current || revision !== notificationRevision.current;
-      setState(current => current && staleNotifications ? {...next,notifications:current.notifications} : next);
+      const staleNotifications =
+        notificationPending.current ||
+        revision !== notificationRevision.current;
+      setState((current) =>
+        current && staleNotifications
+          ? { ...next, notifications: current.notifications }
+          : next,
+      );
       // Preserve optimistic status while saving, then reconcile any incoming
       // records skipped by a refresh that crossed the notification change.
       if (staleNotifications) {
-        if (notificationPending.current) notificationRefreshQueued.current = true;
+        if (notificationPending.current)
+          notificationRefreshQueued.current = true;
         else void refreshWorkspace();
       }
       setLoadError("");
@@ -393,7 +419,7 @@ export default function App() {
           actor?.role === "admin" ||
           (actor?.role === "client"
             ? t.clientId === actor.id
-            : t.assigneeId === actor?.id || !t.assigneeId),
+            : t.assigneeId === actor?.id),
       ) || [],
     [state, actor],
   );
@@ -409,11 +435,14 @@ export default function App() {
   const selectedAppointments = myAppointments.filter(
     (a) => dateInput(new Date(a.start)) === calendarDate,
   );
-  const myNotes = state && actor ? ownedNotifications(state.notifications, actor.id) : [];
+  const myNotes =
+    state && actor ? ownedNotifications(state.notifications, actor.id) : [];
   const messageUnread = myNotes.filter(
     (n) => !n.read && /message/i.test(n.text),
   ).length;
-  useEffect(() => { setActionError(""); }, [dialog?.type, dialog?.id]);
+  useEffect(() => {
+    setActionError("");
+  }, [dialog?.type, dialog?.id]);
   const closeDialog = useCallback(() => {
     if (!lock.current) setDialog(null);
   }, []);
@@ -428,7 +457,10 @@ export default function App() {
       if (close) setDialog(null);
       return true;
     } catch (e) {
-      const message = e instanceof Error ? e.message : "Something went wrong. Please try again.";
+      const message =
+        e instanceof Error
+          ? e.message
+          : "Something went wrong. Please try again.";
       setActionError(message);
       showToast(message, true);
       return false;
@@ -501,37 +533,61 @@ export default function App() {
     setDialog(null);
   };
   const updateNotification = async (command: NotificationCommand) => {
-    if (!actor || !state || lock.current) throw new Error("Another action is still saving. Please try again.");
+    if (!actor || !state || lock.current)
+      throw new Error("Another action is still saving. Please try again.");
     const actorId = actor.id;
     const previousNotes = state.notifications;
-    const affected = new Set(command.type === "readNotifications" ? command.notificationIds || myNotes.map(n=>n.id) : [command.notificationId]);
+    const affected = new Set(
+      command.type === "readNotifications"
+        ? command.notificationIds || myNotes.map((n) => n.id)
+        : [command.notificationId],
+    );
     lock.current = true;
     notificationPending.current = true;
     notificationRevision.current++;
     setBusy(true);
-    setState(current => {
+    setState((current) => {
       if (!current) return current;
-      try { return updateNotifications(current, actorId, command); }
-      catch { return current; } // A refresh or account switch may have removed this row.
+      try {
+        return updateNotifications(current, actorId, command);
+      } catch {
+        return current;
+      } // A refresh or account switch may have removed this row.
     });
     try {
       const next = await runCommand(actorId, command);
       notificationRevision.current++;
       if (notificationIdentity.current !== actorId) return;
       setState(next);
-      if (command.type === "dismissNotification") showToast(command.dismissed ? "Notification dismissed." : "Notification restored.");
-      else if (command.type === "readNotifications") showToast("Notifications marked as read.");
+      if (command.type === "dismissNotification")
+        showToast(
+          command.dismissed
+            ? "Notification dismissed."
+            : "Notification restored.",
+        );
+      else if (command.type === "readNotifications")
+        showToast("Notifications marked as read.");
     } catch (e) {
       notificationRevision.current++;
       if (notificationIdentity.current !== actorId) return;
-      const before = new Map(previousNotes.map(n=>[n.id,n]));
-      setState(current => current ? {...current,notifications:current.notifications.map(n=>{
-        const old = before.get(n.id);
-        if (n.userId !== actorId || !affected.has(n.id) || !old) return n;
-        return command.type === "dismissNotification" ? {...n,dismissed:old.dismissed} : {...n,read:old.read};
-      })} : current);
+      const before = new Map(previousNotes.map((n) => [n.id, n]));
+      setState((current) =>
+        current
+          ? {
+              ...current,
+              notifications: current.notifications.map((n) => {
+                const old = before.get(n.id);
+                if (n.userId !== actorId || !affected.has(n.id) || !old)
+                  return n;
+                return command.type === "dismissNotification"
+                  ? { ...n, dismissed: old.dismissed }
+                  : { ...n, read: old.read };
+              }),
+            }
+          : current,
+      );
       const message = e instanceof Error ? e.message : "Please try again.";
-      showToast(`Could not confirm notification update. ${message}`,true);
+      showToast(`Could not confirm notification update. ${message}`, true);
       void refresh();
       throw new Error(`Could not confirm notification update. ${message}`);
     } finally {
@@ -544,21 +600,29 @@ export default function App() {
       }
     }
   };
-  const openNotificationDestination = (destination: Exclude<NotificationDestination,{type:"details"}>) => {
+  const openNotificationDestination = (
+    destination: Exclude<NotificationDestination, { type: "details" }>,
+  ) => {
     if (destination.type === "conversation") openConversation(destination.id);
     else if (destination.type === "ticket") {
       navigate("Requests");
       setFilter("All requests");
-      setDialog({type:"ticket",id:destination.id});
+      setDialog({ type: "ticket", id: destination.id });
     } else if (destination.type === "appointment") {
-      const appointment = state?.appointments.find(a=>a.id===destination.id);
-      if (!appointment) { showToast("This appointment is no longer available.",true); return; }
+      const appointment = state?.appointments.find(
+        (a) => a.id === destination.id,
+      );
+      if (!appointment) {
+        showToast("This appointment is no longer available.", true);
+        return;
+      }
       navigate("Appointments");
       setCalendarDate(dateInput(new Date(appointment.start)));
-      setDialog({type:"cancel",id:appointment.id});
+      setDialog({ type: "cancel", id: appointment.id });
     } else if (destination.type === "page") {
       navigate(destination.page);
-      if (destination.page === "Requests") setFilter(destination.available ? "Available" : "All requests");
+      if (destination.page === "Requests")
+        setFilter(destination.available ? "Available" : "All requests");
       if (destination.search) setSearch(destination.search);
     }
   };
@@ -650,7 +714,7 @@ export default function App() {
   const outstandingTotal = state.payments
     .filter(
       (payment) =>
-        payment.status !== "Paid" &&
+        outstanding(payment) &&
         mine.some((ticket) => ticket.id === payment.ticketId),
     )
     .reduce((sum, payment) => sum + payment.amount, 0);
@@ -826,7 +890,7 @@ export default function App() {
             <span>{p.name.split(" ")[0]}</span>
           </div>
         ) : (
-          <span className="muted">Finding a match</span>
+          <span className="muted">Awaiting Admin</span>
         );
       },
     },
@@ -840,7 +904,7 @@ export default function App() {
     {
       accessorKey: "status",
       header: "Status",
-      cell: ({ row }) => <Badge>{row.original.status}</Badge>,
+      cell: ({ row }) => <Badge>{requestStage(state, row.original)}</Badge>,
     },
     ...(page === "Requests"
       ? [
@@ -895,7 +959,7 @@ export default function App() {
             </small>
           )}
         </div>
-        <Badge>{ticket.status}</Badge>
+        <Badge>{requestStage(state, ticket)}</Badge>
       </div>
       <dl className="mobile-request-facts">
         <div>
@@ -915,41 +979,23 @@ export default function App() {
       </button>
     </>
   );
-  const paymentAction = (payment: Payment, showPaidLabel = true) => {
-    if (payment.status === "Paid")
-      return showPaidLabel ? (
-        <span className="paid-label">
-          <CheckCheck size={14} /> Paid{" "}
-          {payment.paidAt && dateText(payment.paidAt)}
-        </span>
-      ) : null;
-    if (actor.role === "client")
-      return (
-        <button
-          className="button primary compact"
-          onClick={() => setDialog({ type: "pay", id: payment.id })}
-        >
-          Pay in test mode
-        </button>
-      );
-    if (payment.status === "Pending")
-      return (
-        <button
-          className="button secondary compact"
-          disabled={busy}
-          onClick={() =>
-            void perform(
-              { type: "verifyPayment", paymentId: payment.id },
-              "Payment request verified.",
-              false,
-            )
-          }
-        >
-          Verify request
-        </button>
-      );
-    return <span className="muted">Awaiting client</span>;
-  };
+  const paymentAction = (payment: Payment, _showPaidLabel = true) => (
+    <button
+      className="button secondary compact"
+      onClick={() =>
+        setDialog({
+          type: actor.role === "client" ? "pay" : "ticket",
+          id: actor.role === "client" ? payment.id : payment.ticketId,
+        })
+      }
+    >
+      {payment.status === "Paid"
+        ? "View receipt"
+        : actor.role === "client"
+          ? "Review payment"
+          : "Manage payment"}
+    </button>
+  );
   const paymentCard = (payment: Payment) => {
     const ticket = mine.find((item) => item.id === payment.ticketId);
     const action = paymentAction(payment, false);
@@ -990,7 +1036,7 @@ export default function App() {
             NX-{ticket.number} · {ticket.category}
           </small>
         </div>
-        <Badge>{ticket.status}</Badge>
+        <Badge>{requestStage(state, ticket)}</Badge>
       </div>
       <dl className="mobile-request-facts mobile-oversight-facts">
         <div>
@@ -1172,7 +1218,9 @@ export default function App() {
         "Requests",
         ...(actor.role === "admin" ? (["Clients"] as Page[]) : []),
         ...(actor.role === "client" ? (["Request templates"] as Page[]) : []),
-        ...(actor.role === "admin" || actor.role === "staff" ? (["Time & attendance"] as Page[]) : []),
+        ...(actor.role === "admin" || actor.role === "staff"
+          ? (["Time & attendance"] as Page[])
+          : []),
         ...(actor.role === "client" ? (["Assistants"] as Page[]) : []),
       ],
     },
@@ -1227,7 +1275,9 @@ export default function App() {
               (next !== "Assistants" || actor.role === "client") &&
               (next !== "Clients" || actor.role === "admin") &&
               (next !== "Request templates" || actor.role === "client") &&
-              (next !== "Time & attendance" || actor.role === "staff" || actor.role === "admin") &&
+              (next !== "Time & attendance" ||
+                actor.role === "staff" ||
+                actor.role === "admin") &&
               (next !== "Activity logs" || actor.role === "admin") &&
               (actor.role !== "admin" ||
                 (next !== "Messages" && next !== "Appointments")) &&
@@ -1254,7 +1304,10 @@ export default function App() {
           <button
             className="rail-link"
             aria-label="Help"
-            onClick={() => { setMobile(false); setDialog({ type: "help" }); }}
+            onClick={() => {
+              setMobile(false);
+              setDialog({ type: "help" });
+            }}
           >
             <CircleHelp size={20} />
           </button>
@@ -1346,7 +1399,10 @@ export default function App() {
           </button>
           <button
             className="nav-link"
-            onClick={() => { setMobile(false); setDialog({ type: "help" }); }}
+            onClick={() => {
+              setMobile(false);
+              setDialog({ type: "help" });
+            }}
           >
             <CircleHelp size={17} />
             Workspace guide
@@ -1371,7 +1427,7 @@ export default function App() {
             <div className="sidebar-foot" title={buildLabel}>
               <span className="online-dot" />
               {environmentShortLabel} · {mode === "demo" ? "Demo" : "Connected"}
-              <span title={buildLabel}>Test Version 1.3.4.9</span>
+              <span title={buildLabel}>Test Version 1.3.5</span>
             </div>
           </div>
         </div>
@@ -1395,8 +1451,15 @@ export default function App() {
             </button>
           </div>
           <div className="topbar-right">
-            <ClockWidget tracking={tracking} actor={actor} onOpen={() => navigate("Time & attendance")} />
-            <AppearanceSwitch appearance={appearance} onToggle={toggleAppearance} />
+            <ClockWidget
+              tracking={tracking}
+              actor={actor}
+              onOpen={() => navigate("Time & attendance")}
+            />
+            <AppearanceSwitch
+              appearance={appearance}
+              onToggle={toggleAppearance}
+            />
             {page !== "Requests" && (
               <div className="global-search">
                 <Search size={15} />
@@ -1428,10 +1491,20 @@ export default function App() {
               {mode === "demo" ? "Demo workspace" : "Connected"}
             </span>
             <NotificationCenter
-              key={actor.id} state={state} actor={actor} open={notifications} busy={busy}
-              onToggle={()=>{setNotifications(current=>!current);setAccountMenu(false);}}
-              onClose={()=>setNotifications(false)} onUpdate={updateNotification}
-              onNavigate={openNotificationDestination} syncError={loadError} onRetry={()=>void refresh()}
+              key={actor.id}
+              state={state}
+              actor={actor}
+              open={notifications}
+              busy={busy}
+              onToggle={() => {
+                setNotifications((current) => !current);
+                setAccountMenu(false);
+              }}
+              onClose={() => setNotifications(false)}
+              onUpdate={updateNotification}
+              onNavigate={openNotificationDestination}
+              syncError={loadError}
+              onRetry={() => void refresh()}
             />
             <div className="account-wrap">
               <button
@@ -1508,1409 +1581,1499 @@ export default function App() {
           key={page}
         >
           <div id="workflow-page" />
-          <div className="workspace-page-content" hidden={dialog?.type === "request"}>
-          {actionError && !dialog && <div className="inline-action-error" role="alert"><CircleHelp size={18} /><span>{actionError}</span><button className="text-button" onClick={() => setActionError("")}>Dismiss</button></div>}
-          {loadError && (
-            <div className="banner error-banner" role="alert">
-              {loadError}
-              <button className="text-button" onClick={() => void refresh()}>
-                Retry
-              </button>
-            </div>
-          )}
-          {page === "Overview" && actor.role === "admin" && (
-            <>
-              <OwnerDashboard state={state} tracking={tracking}
-                onRequest={(id) => setDialog({ type: "ticket", id })}
-                onTime={() => navigate("Time & attendance")}
-                onBilling={() => navigate("Billing")}
-                onClients={() => navigate("Clients")} />
-              <div className="workspace-footer"><span>{brand.name}</span><span title={buildLabel}>Test Version 1.3.4.9 · {versionLabel} · {environmentLabel}</span></div>
-            </>
-          )}
-          {page === "Overview" && ["client", "staff"].includes(actor.role) && (
-            <>
-              <RoleDashboard key={actor.id} state={state} actor={actor} tracking={tracking}
-                onRequest={(id) => setDialog({ type: "ticket", id })}
-                onPayment={(id) => setDialog({ type: "pay", id })}
-                onConversation={openConversation}
-                onAppointment={(id) => setDialog({ type: "cancel", id })}
-                onTime={() => navigate("Time & attendance")}
-                onCreate={() => setDialog({ type: "request" })}
-                onBoard={() => navigate("Work board")} />
-              <div className="workspace-footer"><span>{brand.name}</span><span title={buildLabel}>Test Version 1.3.4.9 · {versionLabel} · {environmentLabel}</span></div>
-            </>
-          )}
-
-          {page === "Work board" && (
-            <WorkBoard state={state} actor={actor}
-              onOpenTicket={(id) => setDialog({ type: "ticket", id })}
-              onCreate={actor.role === "client" ? () => setDialog({ type: "request" }) : undefined} />
-          )}
-          {page === "Time & attendance" && (actor.role === "admin" || actor.role === "staff") && (
-            <TimeWorkspace tracking={tracking} state={state} actor={actor} />
-          )}
-          {page === "Clients" && actor.role === "admin" && (
-            <ClientDirectory state={state} actor={actor}
-              onOpenTicket={(id) => setDialog({ type: "ticket", id })} />
-          )}
-          {page === "Request templates" && actor.role === "client" && (
-            <ServiceTemplates onUse={(templateId) => setDialog({ type: "request", templateId })} />
-          )}
-
-          {page === "Assistants" && actor.role === "client" && (
-            <>
-              <SectionHead
-                title="Find an assistant"
-                description="Explore active Nexus assistants by service and availability. Open a profile to learn more or book a call."
-                action={requestButton}
+          <div
+            className="workspace-page-content"
+            hidden={dialog?.type === "request"}
+          >
+            {actionError && !dialog && (
+              <div className="inline-action-error" role="alert">
+                <CircleHelp size={18} />
+                <span>{actionError}</span>
+                <button
+                  className="text-button"
+                  onClick={() => setActionError("")}
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
+            {loadError && (
+              <div className="banner error-banner" role="alert">
+                {loadError}
+                <button className="text-button" onClick={() => void refresh()}>
+                  Retry
+                </button>
+              </div>
+            )}
+            {page === "Overview" && (
+              <WorkflowOverview
+                state={state}
+                actor={actor}
+                onOpen={(id) => setDialog({ type: "ticket", id })}
               />
-              <div
-                className="assistant-directory-controls"
-                role="search"
-                aria-label="Find assistants"
-              >
-                <label>
-                  <span>Search</span>
-                  <input
-                    type="search"
-                    placeholder="Name or skill"
-                    value={assistantSearch}
-                    onChange={(event) => setAssistantSearch(event.target.value)}
+            )}
+            {page === "Overview" && actor.role === "admin" && (
+              <>
+                <OwnerDashboard
+                  state={state}
+                  tracking={tracking}
+                  onRequest={(id) => setDialog({ type: "ticket", id })}
+                  onTime={() => navigate("Time & attendance")}
+                  onBilling={() => navigate("Billing")}
+                  onClients={() => navigate("Clients")}
+                />
+                <div className="workspace-footer">
+                  <span>{brand.name}</span>
+                  <span title={buildLabel}>
+                    Test Version 1.3.5 · {versionLabel} · {environmentLabel}
+                  </span>
+                </div>
+              </>
+            )}
+            {page === "Overview" &&
+              ["client", "staff"].includes(actor.role) && (
+                <>
+                  <RoleDashboard
+                    key={actor.id}
+                    state={state}
+                    actor={actor}
+                    tracking={tracking}
+                    onRequest={(id) => setDialog({ type: "ticket", id })}
+                    onPayment={(id) => setDialog({ type: "pay", id })}
+                    onConversation={openConversation}
+                    onAppointment={(id) => setDialog({ type: "cancel", id })}
+                    onTime={() => navigate("Time & attendance")}
+                    onCreate={() => setDialog({ type: "request" })}
+                    onBoard={() => navigate("Work board")}
                   />
-                </label>
-                <label>
-                  <span>Service</span>
-                  <select
-                    value={assistantCategory}
-                    onChange={(event) =>
-                      setAssistantCategory(event.target.value)
-                    }
-                  >
-                    <option>All services</option>
-                    {categories.map((category) => (
-                      <option key={category}>{category}</option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  <span>Availability</span>
-                  <select
-                    value={assistantAvailability}
-                    onChange={(event) =>
-                      setAssistantAvailability(event.target.value)
-                    }
-                  >
-                    <option>All assistants</option>
-                    <option>Available now</option>
-                  </select>
-                </label>
-              </div>
-              <p className="assistant-result-count" role="status">
-                {availableAssistants.length}{" "}
-                {availableAssistants.length === 1 ? "assistant" : "assistants"}{" "}
-                found
-              </p>
-              {availableAssistants.length ? (
-                <div className="assistant-directory-grid">
-                  {availableAssistants.map((profile) => {
-                    const pastRatings = overviewTickets.filter(
-                      (ticket) =>
-                        ticket.assigneeId === profile.id && ticket.rating,
-                    );
-                    const visualCategory =
-                      profile.skills.find(
-                        (skill) => skill === assistantCategory,
-                      ) ||
-                      profile.skills.find(
-                        (skill) => skill !== "Administrative support",
-                      ) ||
-                      profile.skills[0];
-                    return (
-                      <article
-                        className="assistant-directory-card"
-                        key={profile.id}
-                      >
-                        <img
-                          src={serviceVisual(visualCategory)}
-                          alt=""
-                          loading="lazy"
-                          decoding="async"
-                        />
-                        <div className="assistant-directory-body">
-                          <div className="assistant-directory-identity">
-                            <Avatar name={profile.name} />
-                            <div>
-                              <h2>{profile.name}</h2>
-                              <span>
-                                {profile.available
-                                  ? "Available for calls"
-                                  : "Currently away"}
-                              </span>
-                            </div>
-                          </div>
-                          <p>{profile.bio || "Nexus virtual assistant"}</p>
-                          <div
-                            className="assistant-skill-list"
-                            aria-label={`${profile.name}'s services`}
-                          >
-                            {profile.skills.slice(0, 3).map((skill) => (
-                              <span key={skill}>{skill}</span>
-                            ))}
-                            {profile.skills.length > 3 && (
-                              <small>+{profile.skills.length - 3} more</small>
-                            )}
-                          </div>
-                          <div className="assistant-directory-foot">
-                            <span>
-                              {pastRatings.length
-                                ? `${(pastRatings.reduce((sum, ticket) => sum + (ticket.rating || 0), 0) / pastRatings.length).toFixed(1)} ★ from your requests`
-                                : "No feedback from your requests"}
-                            </span>
-                            <button
-                              className="button secondary compact"
-                              onClick={() =>
-                                setDialog({ type: "assistant", id: profile.id })
-                              }
-                            >
-                              View profile
-                            </button>
-                          </div>
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
-              ) : (
-                <Empty
-                  icon={<Users size={24} />}
-                  title="No assistants match these filters"
-                  text="Try a different service or include assistants who are currently away."
-                />
-              )}
-            </>
-          )}
-
-          {page === "Requests" && (
-            <>
-              <SectionHead
-                title="Requests"
-                description="Manage the brief, budget, assignment, and status of each service."
-                action={requestButton}
-              />
-              {actor.role === "admin" && assigneeFilter && (
-                <div className="request-scope-note">
-                  <span>
-                    Showing requests assigned to{" "}
-                    <strong>
-                      {person(assigneeFilter)?.name || "this assistant"}
-                    </strong>
-                  </span>
-                  <button
-                    className="text-button"
-                    onClick={() => setAssigneeFilter(null)}
-                  >
-                    Clear filter
-                  </button>
-                </div>
-              )}
-              {createdWindow && (
-                <div className="request-scope-note">
-                  <span>
-                    Opened during <strong>{createdWindow.label}</strong>
-                  </span>
-                  <button
-                    className="text-button"
-                    onClick={() => setCreatedWindow(null)}
-                  >
-                    Clear date filter
-                  </button>
-                </div>
-              )}
-              <div className="page-tabs">
-                {[
-                  "All requests",
-                  "Open",
-                  "In progress",
-                  "In review",
-                  "Completed",
-                  ...(actor.role === "staff" ? ["Available"] : []),
-                ].map((f) => (
-                  <button
-                    key={f}
-                    className={filter === f ? "active" : ""}
-                    onClick={() => setFilter(f)}
-                  >
-                    {f}
-                    <span>
-                      {f === "All requests"
-                        ? requestScope.length
-                        : requestScope.filter((t) =>
-                            f === "Available" ? !t.assigneeId : t.status === f,
-                          ).length}
+                  <div className="workspace-footer">
+                    <span>{brand.name}</span>
+                    <span title={buildLabel}>
+                      Test Version 1.3.5 · {versionLabel} · {environmentLabel}
                     </span>
-                  </button>
-                ))}
-              </div>
-              <section className="panel requests-panel">
-                <div className="table-toolbar">
-                  <SearchBox value={search} onChange={setSearch} />
-                  <div className="request-toolbar-meta">
-                    <span className="muted" role="status">
-                      {filtered.length} request
-                      {filtered.length !== 1 ? "s" : ""}
-                    </span>
-                    {(search ||
-                      filter !== "All requests" ||
-                      createdWindow ||
-                      assigneeFilter) && (
-                      <button
-                        className="text-button"
-                        onClick={() => {
-                          setSearch("");
-                          setFilter("All requests");
-                          setAssigneeFilter(null);
-                          setCreatedWindow(null);
-                        }}
-                      >
-                        Reset view
-                      </button>
-                    )}
                   </div>
-                </div>
-                {actor.role === "admin" &&
-                  selectedVisibleRequests.length > 0 && (
-                    <div className="request-selection-bar" role="status">
-                      <strong>{selectedVisibleRequests.length} selected</strong>
-                      <div>
-                        <button
-                          className="button secondary compact"
-                          onClick={exportSelectedRequests}
-                        >
-                          <Download size={15} /> Download summary
-                        </button>
-                        <button
-                          className="text-button"
-                          onClick={() => setSelectedRequestIds([])}
-                        >
-                          Clear selection
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                <DataTable
-                  data={filtered}
-                  columns={columns}
-                  mobileCard={requestCard}
-                  onRow={(t) => setDialog({ type: "ticket", id: t.id })}
-                  empty="No requests match this view. Try another filter or create a new request."
-                  pageSize={8}
-                />
-              </section>
-              {actor.role === "staff" && (
-                <div className="info-note">
-                  <Sparkles size={18} />
-                  <span>
-                    Automatic matching uses your availability, service skills,
-                    and difficulty level. Update them in{" "}
-                    <button
-                      className="text-button"
-                      onClick={() => navigate("Profile")}
-                    >
-                      your profile
-                    </button>
-                    .
-                  </span>
-                </div>
+                </>
               )}
-            </>
-          )}
 
-          {page === "Appointments" && actor.role !== "admin" && (
-            <>
-              <SectionHead
-                title="Appointments"
-                description={`Coordinate your authorized appointments. Times shown in ${Intl.DateTimeFormat().resolvedOptions().timeZone}.`}
-                action={
-                  actor.role === "client" && (
-                    <button
-                      className="button primary"
-                      onClick={() => setDialog({ type: "appointment" })}
-                    >
-                      <Plus size={16} />
-                      Schedule appointment
-                    </button>
-                  )
+            {page === "Work board" && (
+              <WorkBoard
+                state={state}
+                actor={actor}
+                onOpenTicket={(id) => setDialog({ type: "ticket", id })}
+                onCreate={
+                  actor.role === "client"
+                    ? () => setDialog({ type: "request" })
+                    : undefined
                 }
               />
-              <div className="calendar-layout nexus-calendar">
-                <section className="panel calendar-panel">
-                  <div className="calendar-intro">
-                    <div>
-                      <span>My schedule</span>
-                      <h2>Plan your time</h2>
-                    </div>
-                    <p>
-                      Select a date to{" "}
-                      {actor.role === "client"
-                        ? "book a call"
-                        : "see your assigned meetings"}
-                      .
-                    </p>
-                  </div>
-                  <FullCalendar
-                    plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-                    initialView="dayGridMonth"
-                    headerToolbar={{
-                      left: "prev,next today",
-                      center: "title",
-                      right: "dayGridMonth,timeGridWeek,timeGridDay",
-                    }}
-                    height="auto"
-                    events={myAppointments.map((a) => ({
-                      id: a.id,
-                      title:
-                        a.status === "No-show"
-                          ? `No-show · ${a.title}`
-                          : a.title,
-                      start: a.start,
-                      end: a.end,
-                      classNames: [
-                        a.status === "No-show"
-                          ? "event-no-show"
-                          : "event-scheduled",
-                      ],
-                      backgroundColor:
-                        a.status === "No-show" ? "#523b61" : "#6f54ac",
-                      borderColor:
-                        a.status === "No-show" ? "#745581" : "#8f72ce",
-                      textColor: "#ffffff",
-                    }))}
-                    dateClick={(info) => {
-                      setCalendarDate(info.dateStr.slice(0, 10));
-                      if (
-                        actor.role === "client" &&
-                        info.dateStr.slice(0, 10) >= dateInput()
-                      )
-                        setDialog({
-                          type: "appointment",
-                          date: info.dateStr.slice(0, 10),
-                        });
-                    }}
-                    eventClick={(info) => {
-                      setCalendarDate(
-                        dateInput(info.event.start || new Date()),
-                      );
-                      setDialog({ type: "cancel", id: info.event.id });
-                    }}
-                    dayMaxEvents={2}
-                    nowIndicator
-                  />
-                </section>
-                <section className="panel calendar-upcoming">
-                  <div className="panel-head">
-                    <div>
-                      <span className="calendar-day-label">
-                        {dateText(calendarDate, {
-                          weekday: "long",
-                          month: "long",
-                          day: "numeric",
-                        })}
-                      </span>
-                      <h2>Schedule</h2>
-                      <p>
-                        {selectedAppointments.length}{" "}
-                        {selectedAppointments.length === 1
-                          ? "appointment"
-                          : "appointments"}{" "}
-                        on this day
-                      </p>
-                    </div>
-                    <CalendarDays size={18} />
-                  </div>
-                  {selectedAppointments.length ? (
-                    selectedAppointments.map(appointmentCard)
-                  ) : (
-                    <Empty
-                      icon={<CalendarDays size={26} />}
-                      title="No appointments on this day"
-                      text={
-                        actor.role === "client"
-                          ? "Select a day in the calendar or schedule a call."
-                          : "Your assigned meetings will appear here."
+            )}
+            {page === "Time & attendance" &&
+              (actor.role === "admin" || actor.role === "staff") && (
+                <TimeWorkspace
+                  tracking={tracking}
+                  state={state}
+                  actor={actor}
+                />
+              )}
+            {page === "Clients" && actor.role === "admin" && (
+              <ClientDirectory
+                state={state}
+                actor={actor}
+                onOpenTicket={(id) => setDialog({ type: "ticket", id })}
+              />
+            )}
+            {page === "Request templates" && actor.role === "client" && (
+              <ServiceTemplates
+                onUse={(templateId) =>
+                  setDialog({ type: "request", templateId })
+                }
+              />
+            )}
+
+            {page === "Assistants" && actor.role === "client" && (
+              <>
+                <SectionHead
+                  title="Find an assistant"
+                  description="Explore active Nexus assistants by service and availability. Open a profile to learn more or book a call."
+                  action={requestButton}
+                />
+                <div
+                  className="assistant-directory-controls"
+                  role="search"
+                  aria-label="Find assistants"
+                >
+                  <label>
+                    <span>Search</span>
+                    <input
+                      type="search"
+                      placeholder="Name or skill"
+                      value={assistantSearch}
+                      onChange={(event) =>
+                        setAssistantSearch(event.target.value)
                       }
                     />
-                  )}
-                  {upcoming.length > 0 && (
-                    <div className="calendar-next">
-                      <h3>Coming up next</h3>
-                      {upcoming.slice(0, 3).map(appointmentCard)}
-                    </div>
-                  )}
-                  <div className="calendar-note">
-                    <Clock3 size={17} />
-                    <p>
-                      Appointments can last up to 4 hours. We’ll check for
-                      overlaps so everyone has room to focus.
-                    </p>
-                  </div>
-                </section>
-              </div>
-            </>
-          )}
-
-          {page === "Messages" && actor.role !== "admin" && (
-            <>
-              <SectionHead
-                title="Request conversations"
-                description="One shared conversation for every request."
-                action={
-                  currentChat && (
-                    <button
-                      className="button secondary"
-                      onClick={() =>
-                        setDialog({ type: "report", id: currentChat.id })
+                  </label>
+                  <label>
+                    <span>Service</span>
+                    <select
+                      value={assistantCategory}
+                      onChange={(event) =>
+                        setAssistantCategory(event.target.value)
                       }
                     >
-                      Report a problem
-                    </button>
-                  )
-                }
-              />
-              <section className="panel messages-layout">
-                <label className="conversation-picker">
-                  Conversation
-                  <select
-                    aria-label="Choose conversation"
-                    value={currentChat?.id || ""}
-                    onChange={(event) => setConversation(event.target.value)}
-                    disabled={!currentChat}
-                  >
-                    {!currentChat && (
-                      <option value="">No conversations yet</option>
-                    )}
-                    {mine
-                      .filter((ticket) => ticket.assigneeId)
-                      .map((ticket) => (
-                        <option key={ticket.id} value={ticket.id}>
-                          {ticket.title} · NX-{ticket.number}
-                        </option>
+                      <option>All services</option>
+                      {categories.map((category) => (
+                        <option key={category}>{category}</option>
                       ))}
-                  </select>
-                </label>
-                <div className="conversation-list">
-                  <div className="conversation-heading">
-                    <h2>Conversations</h2>
-                    <span className="count-pill">
-                      {mine.filter((t) => t.assigneeId).length}
-                    </span>
-                  </div>
-                  {mine
-                    .filter((t) => t.assigneeId)
-                    .map((t) => {
-                      const counterpart = person(
-                        actor.role === "client" ? t.assigneeId : t.clientId,
-                      )!;
-                      const last = state.messages
-                        .filter((m) => m.ticketId === t.id)
-                        .at(-1);
+                    </select>
+                  </label>
+                  <label>
+                    <span>Availability</span>
+                    <select
+                      value={assistantAvailability}
+                      onChange={(event) =>
+                        setAssistantAvailability(event.target.value)
+                      }
+                    >
+                      <option>All assistants</option>
+                      <option>Available now</option>
+                    </select>
+                  </label>
+                </div>
+                <p className="assistant-result-count" role="status">
+                  {availableAssistants.length}{" "}
+                  {availableAssistants.length === 1
+                    ? "assistant"
+                    : "assistants"}{" "}
+                  found
+                </p>
+                {availableAssistants.length ? (
+                  <div className="assistant-directory-grid">
+                    {availableAssistants.map((profile) => {
+                      const pastRatings = overviewTickets.filter(
+                        (ticket) =>
+                          ticket.assigneeId === profile.id && ticket.rating,
+                      );
+                      const visualCategory =
+                        profile.skills.find(
+                          (skill) => skill === assistantCategory,
+                        ) ||
+                        profile.skills.find(
+                          (skill) => skill !== "Administrative support",
+                        ) ||
+                        profile.skills[0];
                       return (
-                        <button
-                          className={`conversation-item ${currentChat?.id === t.id ? "selected" : ""}`}
-                          key={t.id}
-                          onClick={() => setConversation(t.id)}
+                        <article
+                          className="assistant-directory-card"
+                          key={profile.id}
                         >
-                          <Avatar
-                            name={counterpart.name}
-                            color={t.number % 4}
+                          <img
+                            src={serviceVisual(visualCategory)}
+                            alt=""
+                            loading="lazy"
+                            decoding="async"
                           />
-                          <span>
-                            <strong>{t.title}</strong>
-                            <small>
-                              {counterpart.name} · NX-{t.number}
-                            </small>
-                            <p>{last?.text || "Start a conversation…"}</p>
-                          </span>
-                          <ChevronRight size={14} />
-                        </button>
+                          <div className="assistant-directory-body">
+                            <div className="assistant-directory-identity">
+                              <Avatar name={profile.name} />
+                              <div>
+                                <h2>{profile.name}</h2>
+                                <span>
+                                  {profile.available
+                                    ? "Available for calls"
+                                    : "Currently away"}
+                                </span>
+                              </div>
+                            </div>
+                            <p>{profile.bio || "Nexus virtual assistant"}</p>
+                            <div
+                              className="assistant-skill-list"
+                              aria-label={`${profile.name}'s services`}
+                            >
+                              {profile.skills.slice(0, 3).map((skill) => (
+                                <span key={skill}>{skill}</span>
+                              ))}
+                              {profile.skills.length > 3 && (
+                                <small>+{profile.skills.length - 3} more</small>
+                              )}
+                            </div>
+                            <div className="assistant-directory-foot">
+                              <span>
+                                {pastRatings.length
+                                  ? `${(pastRatings.reduce((sum, ticket) => sum + (ticket.rating || 0), 0) / pastRatings.length).toFixed(1)} ★ from your requests`
+                                  : "No feedback from your requests"}
+                              </span>
+                              <button
+                                className="button secondary compact"
+                                onClick={() =>
+                                  setDialog({
+                                    type: "assistant",
+                                    id: profile.id,
+                                  })
+                                }
+                              >
+                                View profile
+                              </button>
+                            </div>
+                          </div>
+                        </article>
                       );
                     })}
+                  </div>
+                ) : (
+                  <Empty
+                    icon={<Users size={24} />}
+                    title="No assistants match these filters"
+                    text="Try a different service or include assistants who are currently away."
+                  />
+                )}
+              </>
+            )}
+
+            {page === "Requests" && (
+              <>
+                <SectionHead
+                  title="Requests"
+                  description="Track Admin review, agreement approval, payment, assignment and delivery."
+                  action={requestButton}
+                />
+                {actor.role === "admin" && assigneeFilter && (
+                  <div className="request-scope-note">
+                    <span>
+                      Showing requests assigned to{" "}
+                      <strong>
+                        {person(assigneeFilter)?.name || "this assistant"}
+                      </strong>
+                    </span>
+                    <button
+                      className="text-button"
+                      onClick={() => setAssigneeFilter(null)}
+                    >
+                      Clear filter
+                    </button>
+                  </div>
+                )}
+                {createdWindow && (
+                  <div className="request-scope-note">
+                    <span>
+                      Opened during <strong>{createdWindow.label}</strong>
+                    </span>
+                    <button
+                      className="text-button"
+                      onClick={() => setCreatedWindow(null)}
+                    >
+                      Clear date filter
+                    </button>
+                  </div>
+                )}
+                <div className="page-tabs">
+                  {[
+                    "All requests",
+                    "Open",
+                    "In progress",
+                    "In review",
+                    "Completed",
+                  ].map((f) => (
+                    <button
+                      key={f}
+                      className={filter === f ? "active" : ""}
+                      onClick={() => setFilter(f)}
+                    >
+                      {f}
+                      <span>
+                        {f === "All requests"
+                          ? requestScope.length
+                          : requestScope.filter((t) =>
+                              f === "Available"
+                                ? !t.assigneeId
+                                : t.status === f,
+                            ).length}
+                      </span>
+                    </button>
+                  ))}
                 </div>
-                {currentChat ? (
-                  <div className="chat">
-                    <header className="chat-head">
-                      <div className="person-inline">
-                        <Avatar
-                          name={
-                            person(
-                              actor.role === "client"
-                                ? currentChat.assigneeId
-                                : currentChat.clientId,
-                            )?.name || "Team"
-                          }
-                        />
+                <section className="panel requests-panel">
+                  <div className="table-toolbar">
+                    <SearchBox value={search} onChange={setSearch} />
+                    <div className="request-toolbar-meta">
+                      <span className="muted" role="status">
+                        {filtered.length} request
+                        {filtered.length !== 1 ? "s" : ""}
+                      </span>
+                      {(search ||
+                        filter !== "All requests" ||
+                        createdWindow ||
+                        assigneeFilter) && (
+                        <button
+                          className="text-button"
+                          onClick={() => {
+                            setSearch("");
+                            setFilter("All requests");
+                            setAssigneeFilter(null);
+                            setCreatedWindow(null);
+                          }}
+                        >
+                          Reset view
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  {actor.role === "admin" &&
+                    selectedVisibleRequests.length > 0 && (
+                      <div className="request-selection-bar" role="status">
+                        <strong>
+                          {selectedVisibleRequests.length} selected
+                        </strong>
                         <div>
-                          <strong>
-                            {
+                          <button
+                            className="button secondary compact"
+                            onClick={exportSelectedRequests}
+                          >
+                            <Download size={15} /> Download summary
+                          </button>
+                          <button
+                            className="text-button"
+                            onClick={() => setSelectedRequestIds([])}
+                          >
+                            Clear selection
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  <DataTable
+                    data={filtered}
+                    columns={columns}
+                    mobileCard={requestCard}
+                    onRow={(t) => setDialog({ type: "ticket", id: t.id })}
+                    empty="No requests match this view. Try another filter or create a new request."
+                    pageSize={8}
+                  />
+                </section>
+                {actor.role === "staff" && (
+                  <div className="info-note">
+                    <Sparkles size={18} />
+                    <span>
+                      Automatic matching uses your availability, service skills,
+                      and difficulty level. Update them in{" "}
+                      <button
+                        className="text-button"
+                        onClick={() => navigate("Profile")}
+                      >
+                        your profile
+                      </button>
+                      .
+                    </span>
+                  </div>
+                )}
+              </>
+            )}
+
+            {page === "Appointments" && actor.role !== "admin" && (
+              <>
+                <SectionHead
+                  title="Appointments"
+                  description={`Coordinate your authorized appointments. Times shown in ${Intl.DateTimeFormat().resolvedOptions().timeZone}.`}
+                  action={
+                    actor.role === "client" && (
+                      <button
+                        className="button primary"
+                        onClick={() => setDialog({ type: "appointment" })}
+                      >
+                        <Plus size={16} />
+                        Schedule appointment
+                      </button>
+                    )
+                  }
+                />
+                <div className="calendar-layout nexus-calendar">
+                  <section className="panel calendar-panel">
+                    <div className="calendar-intro">
+                      <div>
+                        <span>My schedule</span>
+                        <h2>Plan your time</h2>
+                      </div>
+                      <p>
+                        Select a date to{" "}
+                        {actor.role === "client"
+                          ? "book a call"
+                          : "see your assigned meetings"}
+                        .
+                      </p>
+                    </div>
+                    <FullCalendar
+                      plugins={[
+                        dayGridPlugin,
+                        timeGridPlugin,
+                        interactionPlugin,
+                      ]}
+                      initialView="dayGridMonth"
+                      headerToolbar={{
+                        left: "prev,next today",
+                        center: "title",
+                        right: "dayGridMonth,timeGridWeek,timeGridDay",
+                      }}
+                      height="auto"
+                      events={myAppointments.map((a) => ({
+                        id: a.id,
+                        title:
+                          a.status === "No-show"
+                            ? `No-show · ${a.title}`
+                            : a.title,
+                        start: a.start,
+                        end: a.end,
+                        classNames: [
+                          a.status === "No-show"
+                            ? "event-no-show"
+                            : "event-scheduled",
+                        ],
+                        backgroundColor:
+                          a.status === "No-show" ? "#523b61" : "#6f54ac",
+                        borderColor:
+                          a.status === "No-show" ? "#745581" : "#8f72ce",
+                        textColor: "#ffffff",
+                      }))}
+                      dateClick={(info) => {
+                        setCalendarDate(info.dateStr.slice(0, 10));
+                        if (
+                          actor.role === "client" &&
+                          info.dateStr.slice(0, 10) >= dateInput()
+                        )
+                          setDialog({
+                            type: "appointment",
+                            date: info.dateStr.slice(0, 10),
+                          });
+                      }}
+                      eventClick={(info) => {
+                        setCalendarDate(
+                          dateInput(info.event.start || new Date()),
+                        );
+                        setDialog({ type: "cancel", id: info.event.id });
+                      }}
+                      dayMaxEvents={2}
+                      nowIndicator
+                    />
+                  </section>
+                  <section className="panel calendar-upcoming">
+                    <div className="panel-head">
+                      <div>
+                        <span className="calendar-day-label">
+                          {dateText(calendarDate, {
+                            weekday: "long",
+                            month: "long",
+                            day: "numeric",
+                          })}
+                        </span>
+                        <h2>Schedule</h2>
+                        <p>
+                          {selectedAppointments.length}{" "}
+                          {selectedAppointments.length === 1
+                            ? "appointment"
+                            : "appointments"}{" "}
+                          on this day
+                        </p>
+                      </div>
+                      <CalendarDays size={18} />
+                    </div>
+                    {selectedAppointments.length ? (
+                      selectedAppointments.map(appointmentCard)
+                    ) : (
+                      <Empty
+                        icon={<CalendarDays size={26} />}
+                        title="No appointments on this day"
+                        text={
+                          actor.role === "client"
+                            ? "Select a day in the calendar or schedule a call."
+                            : "Your assigned meetings will appear here."
+                        }
+                      />
+                    )}
+                    {upcoming.length > 0 && (
+                      <div className="calendar-next">
+                        <h3>Coming up next</h3>
+                        {upcoming.slice(0, 3).map(appointmentCard)}
+                      </div>
+                    )}
+                    <div className="calendar-note">
+                      <Clock3 size={17} />
+                      <p>
+                        Appointments can last up to 4 hours. We’ll check for
+                        overlaps so everyone has room to focus.
+                      </p>
+                    </div>
+                  </section>
+                </div>
+              </>
+            )}
+
+            {page === "Messages" && actor.role !== "admin" && (
+              <>
+                <SectionHead
+                  title="Request conversations"
+                  description="One shared conversation for every request."
+                  action={
+                    currentChat && (
+                      <button
+                        className="button secondary"
+                        onClick={() =>
+                          setDialog({ type: "report", id: currentChat.id })
+                        }
+                      >
+                        Report a problem
+                      </button>
+                    )
+                  }
+                />
+                <section className="panel messages-layout">
+                  <label className="conversation-picker">
+                    Conversation
+                    <select
+                      aria-label="Choose conversation"
+                      value={currentChat?.id || ""}
+                      onChange={(event) => setConversation(event.target.value)}
+                      disabled={!currentChat}
+                    >
+                      {!currentChat && (
+                        <option value="">No conversations yet</option>
+                      )}
+                      {mine
+                        .filter((ticket) => ticket.assigneeId)
+                        .map((ticket) => (
+                          <option key={ticket.id} value={ticket.id}>
+                            {ticket.title} · NX-{ticket.number}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+                  <div className="conversation-list">
+                    <div className="conversation-heading">
+                      <h2>Conversations</h2>
+                      <span className="count-pill">
+                        {mine.filter((t) => t.assigneeId).length}
+                      </span>
+                    </div>
+                    {mine
+                      .filter((t) => t.assigneeId)
+                      .map((t) => {
+                        const counterpart = person(
+                          actor.role === "client" ? t.assigneeId : t.clientId,
+                        )!;
+                        const last = state.messages
+                          .filter((m) => m.ticketId === t.id)
+                          .at(-1);
+                        return (
+                          <button
+                            className={`conversation-item ${currentChat?.id === t.id ? "selected" : ""}`}
+                            key={t.id}
+                            onClick={() => setConversation(t.id)}
+                          >
+                            <Avatar
+                              name={counterpart.name}
+                              color={t.number % 4}
+                            />
+                            <span>
+                              <strong>{t.title}</strong>
+                              <small>
+                                {counterpart.name} · NX-{t.number}
+                              </small>
+                              <p>{last?.text || "Start a conversation…"}</p>
+                            </span>
+                            <ChevronRight size={14} />
+                          </button>
+                        );
+                      })}
+                  </div>
+                  {currentChat ? (
+                    <div className="chat">
+                      <header className="chat-head">
+                        <div className="person-inline">
+                          <Avatar
+                            name={
                               person(
                                 actor.role === "client"
                                   ? currentChat.assigneeId
                                   : currentChat.clientId,
-                              )?.name
+                              )?.name || "Team"
                             }
-                          </strong>
-                          <small>
-                            <span className="online-dot" />
-                            {currentChat.title}
-                          </small>
+                          />
+                          <div>
+                            <strong>
+                              {
+                                person(
+                                  actor.role === "client"
+                                    ? currentChat.assigneeId
+                                    : currentChat.clientId,
+                                )?.name
+                              }
+                            </strong>
+                            <small>
+                              <span className="online-dot" />
+                              {currentChat.title}
+                            </small>
+                          </div>
                         </div>
-                      </div>
-                      <button
-                        className="button secondary compact"
-                        onClick={() =>
-                          setDialog({ type: "ticket", id: currentChat.id })
-                        }
-                      >
-                        Request details
-                        <ArrowUpRight size={14} />
-                      </button>
-                    </header>
-                    <div className="chat-project-strip">
-                      <span>NX-{currentChat.number}</span>
-                      <Badge>{currentChat.status}</Badge>
-                      <span className="chat-strip-spacer" />
-                      {actor.role !== "client" &&
-                        currentChat.status !== "Completed" && (
+                        <button
+                          className="button secondary compact"
+                          onClick={() =>
+                            setDialog({ type: "ticket", id: currentChat.id })
+                          }
+                        >
+                          Request details
+                          <ArrowUpRight size={14} />
+                        </button>
+                      </header>
+                      <div className="chat-project-strip">
+                        <span>NX-{currentChat.number}</span>
+                        <Badge>{currentChat.status}</Badge>
+                        <span className="chat-strip-spacer" />
+                        {actor.role === "client" && (
                           <button
                             className="text-button"
-                            onClick={() =>
-                              setDialog({ type: "payment", id: currentChat.id })
-                            }
+                            onClick={() => navigate("Billing")}
                           >
                             <CreditCard size={14} />
-                            Request payment
+                            View billing
                           </button>
                         )}
-                      {actor.role === "client" && (
-                        <button
-                          className="text-button"
-                          onClick={() => navigate("Billing")}
+                      </div>
+                      <div className="chat-body">
+                        <div className="chat-start">
+                          <ShieldCheck size={13} />A shared space for you and
+                          your request team.
+                        </div>
+                        {state.messages
+                          .filter((m) => m.ticketId === currentChat.id)
+                          .map((m) =>
+                            m.system ? (
+                              <div className="system-message" key={m.id}>
+                                <CircleCheck size={12} />
+                                {m.text}
+                              </div>
+                            ) : (
+                              <div
+                                className={`message-row ${m.senderId === actor.id ? "own" : ""}`}
+                                key={m.id}
+                              >
+                                {m.senderId !== actor.id && (
+                                  <Avatar
+                                    name={person(m.senderId)?.name || "Team"}
+                                    size="small"
+                                  />
+                                )}
+                                <div className="message-block">
+                                  <div className="message-meta">
+                                    {person(m.senderId)?.name.split(" ")[0]}
+                                    <span>
+                                      {dateText(m.createdAt)} ·{" "}
+                                      {timeText(m.createdAt)}
+                                    </span>
+                                  </div>
+                                  <div className="message-bubble">{m.text}</div>
+                                </div>
+                              </div>
+                            ),
+                          )}
+                        {state.documents
+                          .filter((d) => d.ticketId === currentChat.id)
+                          .map((d) => (
+                            <div className="chat-file" key={d.id}>
+                              <span className="file-icon">
+                                <FileText size={21} />
+                              </span>
+                              <div>
+                                <strong>{d.name}</strong>
+                                <small>
+                                  {d.isOutput
+                                    ? "Request output"
+                                    : "Shared file"}{" "}
+                                  · {dateText(d.createdAt)}
+                                </small>
+                              </div>
+                              <button
+                                className="icon-button"
+                                aria-label={`Download ${d.name}`}
+                                onClick={() => void download(d)}
+                              >
+                                <Download size={17} />
+                              </button>
+                            </div>
+                          ))}
+                        <div ref={chatBottom} />
+                      </div>
+                      {currentChat.status === "Completed" ? (
+                        <div className="chat-closed">
+                          <CircleCheck size={17} />
+                          This request is complete. Thank you for making good
+                          things happen.
+                        </div>
+                      ) : (
+                        <form
+                          className="chat-composer"
+                          onSubmit={async (e) => {
+                            e.preventDefault();
+                            const form = e.currentTarget;
+                            const text = String(
+                              new FormData(form).get("message") || "",
+                            );
+                            if (
+                              await perform(
+                                {
+                                  type: "sendMessage",
+                                  ticketId: currentChat.id,
+                                  text,
+                                },
+                                "Message sent.",
+                                false,
+                              )
+                            )
+                              form.reset();
+                          }}
                         >
-                          <CreditCard size={14} />
-                          View billing
-                        </button>
+                          <textarea
+                            name="message"
+                            aria-label="Your message"
+                            placeholder="Write a message about this request…"
+                            required
+                            maxLength={5000}
+                            rows={2}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && !e.shiftKey) {
+                                e.preventDefault();
+                                e.currentTarget.form?.requestSubmit();
+                              }
+                            }}
+                          />
+                          <div className="composer-actions">
+                            {fileUpload(currentChat.id)}
+                            <span>
+                              Enter to send · Shift + Enter for a new line
+                            </span>
+                            <button
+                              className="button primary compact"
+                              disabled={busy}
+                              type="submit"
+                            >
+                              Send
+                              <Send size={14} />
+                            </button>
+                          </div>
+                        </form>
                       )}
                     </div>
-                    <div className="chat-body">
-                      <div className="chat-start">
-                        <ShieldCheck size={13} />A shared space for you and your
-                        request team.
+                  ) : (
+                    <Empty
+                      icon={<MessageSquare size={32} />}
+                      title="Your next conversation starts here"
+                      text="Once Admin assigns your VA, your private conversation appears here."
+                    />
+                  )}
+                </section>
+              </>
+            )}
+
+            {page === "Billing" && (
+              <>
+                <SectionHead
+                  title="Billing & payments"
+                  description="Payment requests, confirmations, and history in one place."
+                />
+                <div className="billing-demo-banner">
+                  <ShieldCheck size={18} />
+                  <p>
+                    <strong>
+                      {mode === "demo"
+                        ? "Demo payment records."
+                        : "Admin-confirmed payments."}
+                    </strong>{" "}
+                    Follow the invoice instructions and submit a reference.
+                    Payment stays pending until Admin confirms receipt. No card
+                    charges are collected by this app.
+                  </p>
+                </div>
+                <dl
+                  className="dashboard-summary billing-summary"
+                  aria-label="Payment summary"
+                >
+                  <div>
+                    <dt>Total paid</dt>
+                    <dd>{money(totalPaid)}</dd>
+                  </div>
+                  <div>
+                    <dt>Awaiting payment</dt>
+                    <dd>{money(outstandingTotal)}</dd>
+                  </div>
+                  <div>
+                    <dt>Payment requests</dt>
+                    <dd>{paymentRequestCount}</dd>
+                  </div>
+                </dl>
+                {mine
+                  .filter((t) => t.workflow?.billing?.kind === "Subscription")
+                  .map((t) => (
+                    <section className="panel wf-overview" key={t.id}>
+                      <div className="panel-head">
+                        <h2>{t.title}</h2>
+                        <button
+                          className="text-button"
+                          onClick={() =>
+                            setDialog({ type: "ticket", id: t.id })
+                          }
+                        >
+                          View request
+                        </button>
                       </div>
-                      {state.messages
-                        .filter((m) => m.ticketId === currentChat.id)
-                        .map((m) =>
-                          m.system ? (
-                            <div className="system-message" key={m.id}>
-                              <CircleCheck size={12} />
-                              {m.text}
+                      <div style={{ padding: "0 20px 20px" }}>
+                        <SubscriptionSummary
+                          state={state}
+                          ticket={t}
+                          actor={actor}
+                          busy={busy}
+                          execute={(c, m) => perform(c, m, false)}
+                        />
+                      </div>
+                    </section>
+                  ))}
+                <section className="panel billing-panel">
+                  <div className="panel-head">
+                    <div>
+                      <h2>Payment activity</h2>
+                    </div>
+                  </div>
+                  <DataTable
+                    data={state.payments
+                      .filter((p) => mine.some((t) => t.id === p.ticketId))
+                      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))}
+                    mobileCard={paymentCard}
+                    mobileSortLabel="Sort payments"
+                    columns={[
+                      {
+                        accessorKey: "description",
+                        header: "Payment request",
+                        cell: ({ row }) => (
+                          <div className="payment-cell">
+                            <div>
+                              <strong>{row.original.description}</strong>
+                              <small>
+                                NX-
+                                {
+                                  mine.find(
+                                    (t) => t.id === row.original.ticketId,
+                                  )?.number
+                                }{" "}
+                                · {dateText(row.original.createdAt)}
+                              </small>
                             </div>
-                          ) : (
-                            <div
-                              className={`message-row ${m.senderId === actor.id ? "own" : ""}`}
-                              key={m.id}
+                          </div>
+                        ),
+                      },
+                      {
+                        accessorKey: "amount",
+                        header: "Amount",
+                        cell: ({ row }) => (
+                          <strong>{money(row.original.amount)}</strong>
+                        ),
+                      },
+                      {
+                        accessorKey: "status",
+                        header: "Status",
+                        cell: ({ row }) => <Badge>{row.original.status}</Badge>,
+                      },
+                      {
+                        id: "action",
+                        header: "",
+                        enableSorting: false,
+                        cell: ({ row }) => paymentAction(row.original),
+                      },
+                    ]}
+                    empty="Invoices appear after Admin approves the agreement and sets the service price."
+                  />
+                </section>
+              </>
+            )}
+
+            {page === "Files & documents" && (
+              <>
+                <SectionHead
+                  title="Files & documents"
+                  description="Your documents, shared resources, and finished work. All together."
+                  action={fileUpload()}
+                />
+                <div className="document-summary">
+                  <FolderOpen size={25} />
+                  <div>
+                    <strong>Your shared workspace</strong>
+                    <p>
+                      Upload documents up to 10 MB. Request files can also be
+                      shared directly in conversations.
+                    </p>
+                  </div>
+                  <Badge tone="purple">
+                    {
+                      state.documents.filter(
+                        (d) =>
+                          actor.role !== "client" ||
+                          d.ownerId === actor.id ||
+                          mine.some((t) => t.id === d.ticketId),
+                      ).length
+                    }{" "}
+                    files
+                  </Badge>
+                </div>
+                <section className="panel files-panel">
+                  <div className="table-toolbar">
+                    <SearchBox
+                      value={search}
+                      onChange={setSearch}
+                      placeholder="Search files…"
+                    />
+                    <span className="muted">
+                      {mode === "demo"
+                        ? "Stored in this browser"
+                        : "Private Supabase storage"}
+                    </span>
+                  </div>
+                  <DataTable
+                    data={state.documents.filter(
+                      (d) =>
+                        (actor.role !== "client" ||
+                          d.ownerId === actor.id ||
+                          mine.some((t) => t.id === d.ticketId)) &&
+                        d.name.toLowerCase().includes(search.toLowerCase()),
+                    )}
+                    mobileSortLabel="Sort files"
+                    mobileCard={(doc) => (
+                      <>
+                        <div className="mobile-request-heading file-card-heading">
+                          <div className="payment-cell">
+                            <span
+                              className={`file-icon ${doc.isOutput ? "output" : ""}`}
                             >
-                              {m.senderId !== actor.id && (
-                                <Avatar
-                                  name={person(m.senderId)?.name || "Team"}
-                                  size="small"
-                                />
-                              )}
-                              <div className="message-block">
-                                <div className="message-meta">
-                                  {person(m.senderId)?.name.split(" ")[0]}
-                                  <span>
-                                    {dateText(m.createdAt)} ·{" "}
-                                    {timeText(m.createdAt)}
-                                  </span>
-                                </div>
-                                <div className="message-bubble">{m.text}</div>
-                              </div>
-                            </div>
-                          ),
-                        )}
-                      {state.documents
-                        .filter((d) => d.ticketId === currentChat.id)
-                        .map((d) => (
-                          <div className="chat-file" key={d.id}>
-                            <span className="file-icon">
                               <FileText size={21} />
                             </span>
                             <div>
-                              <strong>{d.name}</strong>
+                              <strong>{doc.name}</strong>
                               <small>
-                                {d.isOutput ? "Request output" : "Shared file"}{" "}
-                                · {dateText(d.createdAt)}
+                                {doc.isOutput
+                                  ? "Request output"
+                                  : "Shared document"}{" "}
+                                ·{" "}
+                                {doc.size < 1024 * 1024
+                                  ? `${Math.max(1, Math.round(doc.size / 1024))} KB`
+                                  : `${(doc.size / 1024 / 1024).toFixed(1)} MB`}
                               </small>
                             </div>
-                            <button
-                              className="icon-button"
-                              aria-label={`Download ${d.name}`}
-                              onClick={() => void download(d)}
-                            >
-                              <Download size={17} />
-                            </button>
                           </div>
-                        ))}
-                      <div ref={chatBottom} />
-                    </div>
-                    {currentChat.status === "Completed" ? (
-                      <div className="chat-closed">
-                        <CircleCheck size={17} />
-                        This request is complete. Thank you for making good
-                        things happen.
-                      </div>
-                    ) : (
-                      <form
-                        className="chat-composer"
-                        onSubmit={async (e) => {
-                          e.preventDefault();
-                          const form = e.currentTarget;
-                          const text = String(
-                            new FormData(form).get("message") || "",
-                          );
-                          if (
-                            await perform(
-                              {
-                                type: "sendMessage",
-                                ticketId: currentChat.id,
-                                text,
-                              },
-                              "Message sent.",
-                              false,
-                            )
-                          )
-                            form.reset();
-                        }}
-                      >
-                        <textarea
-                          name="message"
-                          aria-label="Your message"
-                          placeholder="Write a message about this request…"
-                          required
-                          maxLength={5000}
-                          rows={2}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" && !e.shiftKey) {
-                              e.preventDefault();
-                              e.currentTarget.form?.requestSubmit();
-                            }
-                          }}
-                        />
-                        <div className="composer-actions">
-                          {fileUpload(currentChat.id)}
-                          <span>
-                            Enter to send · Shift + Enter for a new line
-                          </span>
-                          <button
-                            className="button primary compact"
-                            disabled={busy}
-                            type="submit"
-                          >
-                            Send
-                            <Send size={14} />
-                          </button>
+                          <Badge tone={doc.reviewed ? "paid" : "pending"}>
+                            {doc.reviewed ? "Reviewed" : "To review"}
+                          </Badge>
                         </div>
-                      </form>
-                    )}
-                  </div>
-                ) : (
-                  <Empty
-                    icon={<MessageSquare size={32} />}
-                    title="Your next conversation starts here"
-                    text="Once an assistant accepts your request, you can connect right here."
-                  />
-                )}
-              </section>
-            </>
-          )}
-
-          {page === "Billing" && (
-            <>
-              <SectionHead
-                title="Billing & payments"
-                description="Payment requests, confirmations, and history in one place."
-              />
-              <div className="billing-demo-banner">
-                <ShieldCheck size={18} />
-                <p>
-                  <strong>Test payments only.</strong> No card details or real
-                  charges.
-                </p>
-              </div>
-              <dl
-                className="dashboard-summary billing-summary"
-                aria-label="Payment summary"
-              >
-                <div>
-                  <dt>Total paid</dt>
-                  <dd>{money(totalPaid)}</dd>
-                </div>
-                <div>
-                  <dt>Awaiting payment</dt>
-                  <dd>{money(outstandingTotal)}</dd>
-                </div>
-                <div>
-                  <dt>Payment requests</dt>
-                  <dd>{paymentRequestCount}</dd>
-                </div>
-              </dl>
-              <section className="panel billing-panel">
-                <div className="panel-head">
-                  <div>
-                    <h2>Payment activity</h2>
-                  </div>
-                </div>
-                <DataTable
-                  data={state.payments
-                    .filter((p) => mine.some((t) => t.id === p.ticketId))
-                    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))}
-                  mobileCard={paymentCard}
-                  mobileSortLabel="Sort payments"
-                  columns={[
-                    {
-                      accessorKey: "description",
-                      header: "Payment request",
-                      cell: ({ row }) => (
-                        <div className="payment-cell">
+                        <dl className="mobile-request-facts">
                           <div>
-                            <strong>{row.original.description}</strong>
-                            <small>
-                              NX-
-                              {
-                                mine.find((t) => t.id === row.original.ticketId)
-                                  ?.number
-                              }{" "}
-                              · {dateText(row.original.createdAt)}
-                            </small>
+                            <dt>Shared by</dt>
+                            <dd>{person(doc.ownerId)?.name || "Team"}</dd>
                           </div>
-                        </div>
-                      ),
-                    },
-                    {
-                      accessorKey: "amount",
-                      header: "Amount",
-                      cell: ({ row }) => (
-                        <strong>{money(row.original.amount)}</strong>
-                      ),
-                    },
-                    {
-                      accessorKey: "status",
-                      header: "Status",
-                      cell: ({ row }) => <Badge>{row.original.status}</Badge>,
-                    },
-                    {
-                      id: "action",
-                      header: "",
-                      enableSorting: false,
-                      cell: ({ row }) => paymentAction(row.original),
-                    },
-                  ]}
-                  empty="Payment requests will appear here when a service is requested."
-                />
-              </section>
-            </>
-          )}
-
-          {page === "Files & documents" && (
-            <>
-              <SectionHead
-                title="Files & documents"
-                description="Your documents, shared resources, and finished work. All together."
-                action={fileUpload()}
-              />
-              <div className="document-summary">
-                <FolderOpen size={25} />
-                <div>
-                  <strong>Your shared workspace</strong>
-                  <p>
-                    Upload documents up to 10 MB. Request files can also be
-                    shared directly in conversations.
-                  </p>
-                </div>
-                <Badge tone="purple">
-                  {
-                    state.documents.filter(
-                      (d) =>
-                        actor.role !== "client" ||
-                        d.ownerId === actor.id ||
-                        mine.some((t) => t.id === d.ticketId),
-                    ).length
-                  }{" "}
-                  files
-                </Badge>
-              </div>
-              <section className="panel files-panel">
-                <div className="table-toolbar">
-                  <SearchBox
-                    value={search}
-                    onChange={setSearch}
-                    placeholder="Search files…"
-                  />
-                  <span className="muted">
-                    {mode === "demo"
-                      ? "Stored in this browser"
-                      : "Private Supabase storage"}
-                  </span>
-                </div>
-                <DataTable
-                  data={state.documents.filter(
-                    (d) =>
-                      (actor.role !== "client" ||
-                        d.ownerId === actor.id ||
-                        mine.some((t) => t.id === d.ticketId)) &&
-                      d.name.toLowerCase().includes(search.toLowerCase()),
-                  )}
-                  mobileSortLabel="Sort files"
-                  mobileCard={(doc) => (
-                    <>
-                      <div className="mobile-request-heading file-card-heading">
-                        <div className="payment-cell">
-                          <span
-                            className={`file-icon ${doc.isOutput ? "output" : ""}`}
-                          >
-                            <FileText size={21} />
-                          </span>
                           <div>
-                            <strong>{doc.name}</strong>
-                            <small>
-                              {doc.isOutput
-                                ? "Request output"
-                                : "Shared document"}{" "}
-                              ·{" "}
-                              {doc.size < 1024 * 1024
-                                ? `${Math.max(1, Math.round(doc.size / 1024))} KB`
-                                : `${(doc.size / 1024 / 1024).toFixed(1)} MB`}
-                            </small>
+                            <dt>Uploaded</dt>
+                            <dd>{dateText(doc.createdAt)}</dd>
                           </div>
-                        </div>
-                        <Badge tone={doc.reviewed ? "paid" : "pending"}>
-                          {doc.reviewed ? "Reviewed" : "To review"}
-                        </Badge>
-                      </div>
-                      <dl className="mobile-request-facts">
-                        <div>
-                          <dt>Shared by</dt>
-                          <dd>{person(doc.ownerId)?.name || "Team"}</dd>
-                        </div>
-                        <div>
-                          <dt>Uploaded</dt>
-                          <dd>{dateText(doc.createdAt)}</dd>
-                        </div>
-                      </dl>
-                      {documentActions(doc, true)}
-                    </>
-                  )}
-                  columns={[
-                    {
-                      accessorKey: "name",
-                      header: "File name",
-                      cell: ({ row }) => (
-                        <div className="payment-cell">
-                          <span
-                            className={`file-icon ${row.original.isOutput ? "output" : ""}`}
-                          >
-                            <FileText size={21} />
-                          </span>
-                          <div>
-                            <strong>{row.original.name}</strong>
-                            <small>
-                              {row.original.isOutput
-                                ? "Request output"
-                                : "Shared document"}{" "}
-                              ·{" "}
-                              {row.original.size < 1024 * 1024
-                                ? `${Math.max(1, Math.round(row.original.size / 1024))} KB`
-                                : `${(row.original.size / 1024 / 1024).toFixed(1)} MB`}
-                            </small>
-                          </div>
-                        </div>
-                      ),
-                    },
-                    {
-                      id: "owner",
-                      header: "Shared by",
-                      cell: ({ row }) =>
-                        person(row.original.ownerId)?.name || "Team",
-                    },
-                    {
-                      accessorKey: "createdAt",
-                      header: "Uploaded",
-                      cell: ({ row }) => dateText(row.original.createdAt),
-                    },
-                    {
-                      accessorKey: "reviewed",
-                      header: "Status",
-                      cell: ({ row }) => (
-                        <Badge
-                          tone={row.original.reviewed ? "paid" : "pending"}
-                        >
-                          {row.original.reviewed ? "Reviewed" : "To review"}
-                        </Badge>
-                      ),
-                    },
-                    {
-                      id: "actions",
-                      header: "",
-                      enableSorting: false,
-                      cell: ({ row }) => documentActions(row.original),
-                    },
-                  ]}
-                  empty="A fresh folder. Upload your first document to get started."
-                />
-              </section>
-            </>
-          )}
-
-          {page === "Profile" && (
-            <>
-              <SectionHead
-                title="Your profile"
-                description="Your profile, account details, and work preferences."
-              />
-              <div className="profile-layout">
-                <aside className="panel profile-card">
-                  <Avatar name={actor.name} size="large" color={2} />
-                  <h2>{actor.name}</h2>
-                  <p>{companyName(actor.company)}</p>
-                  <Badge>
-                    {actor.role === "staff" ? "Virtual assistant" : actor.role}
-                  </Badge>
-                  <div className="profile-status">
-                    <span className="online-dot" />
-                    {actor.status} account
-                    <ShieldCheck size={16} />
-                  </div>
-                  <div className="profile-detail">
-                    <span>Email address</span>
-                    <strong>{actor.email}</strong>
-                  </div>
-                  <div className="profile-detail">
-                    <span>Workspace</span>
-                    <strong>
-                      {mode === "demo"
-                        ? "Prototype demo"
-                        : "Supabase connected"}
-                    </strong>
-                  </div>
-                  <button
-                    className="button secondary"
-                    onClick={() => navigate("Files & documents")}
-                  >
-                    <FolderOpen size={16} />
-                    View my documents
-                  </button>
-                  <button
-                    className="text-button signout"
-                    onClick={() => void signout()}
-                  >
-                    <LogOut size={15} />
-                    Sign out
-                  </button>
-                </aside>
-                <section className="panel profile-form">
-                  <div className="panel-head">
-                    <div>
-                      <h2>Profile information</h2>
-                      <p>
-                        Keep your contact and workspace information current.
-                      </p>
-                    </div>
-                  </div>
-                  <Form
-                    key={actor.id}
-                    onSubmit={async (form) => {
-                      await perform(
-                        {
-                          type: "saveProfile",
-                          name: str(form, "name"),
-                          company: str(form, "company"),
-                          bio: str(form, "bio"),
-                          available: form.get("available") === "on",
-                          autoAssign: form.get("autoAssign") === "on",
-                          skillLevel: (str(form, "skillLevel") ||
-                            actor.skillLevel) as Difficulty,
-                          skills:
-                            actor.role === "staff"
-                              ? form.getAll("skills").map(String)
-                              : actor.skills,
-                        },
-                        "Profile updated.",
-                        false,
-                      );
-                    }}
-                  >
-                    <div className="form-row">
-                      <Field label="Full name">
-                        <input
-                          name="name"
-                          defaultValue={actor.name}
-                          required
-                          minLength={2}
-                        />
-                      </Field>
-                      <Field label="Company / organization">
-                        <input name="company" defaultValue={actor.company} />
-                      </Field>
-                    </div>
-                    <Field label="About you">
-                      <textarea
-                        name="bio"
-                        defaultValue={actor.bio}
-                        rows={4}
-                        maxLength={1000}
-                      />
-                    </Field>
-                    {actor.role === "staff" && (
-                      <>
-                        <div className="form-section-title">
-                          <h3>Your work, your way</h3>
-                          <p>
-                            Tell us what you’re available for. We’ll use these
-                            details to match you with new work.
-                          </p>
-                        </div>
-                        <label className="toggle-row">
-                          <span>
-                            <strong>Available for new requests</strong>
-                            <small>
-                              Let clients and your team know you have room.
-                            </small>
-                          </span>
-                          <input
-                            type="checkbox"
-                            name="available"
-                            defaultChecked={actor.available}
-                          />
-                        </label>
-                        <label className="toggle-row">
-                          <span>
-                            <strong>Automatic assignment</strong>
-                            <small>
-                              Accept matching requests automatically after
-                              payment.
-                            </small>
-                          </span>
-                          <input
-                            type="checkbox"
-                            name="autoAssign"
-                            defaultChecked={actor.autoAssign}
-                          />
-                        </label>
-                        <Field label="Maximum service difficulty">
-                          <select
-                            name="skillLevel"
-                            defaultValue={actor.skillLevel}
-                          >
-                            {difficulties.map((d) => (
-                              <option key={d}>{d}</option>
-                            ))}
-                          </select>
-                        </Field>
-                        <div className="field">
-                          <span>Your service skills</span>
-                          <div className="skills-options">
-                            {categories.map((c) => (
-                              <label key={c}>
-                                <input
-                                  type="checkbox"
-                                  name="skills"
-                                  value={c}
-                                  defaultChecked={actor.skills.includes(c)}
-                                />
-                                {c}
-                              </label>
-                            ))}
-                          </div>
-                        </div>
+                        </dl>
+                        {documentActions(doc, true)}
                       </>
                     )}
-                    <div className="form-actions">
-                      <span className="muted">
-                        Changes apply to your workspace profile.
-                      </span>
-                      <Submit busy={busy}>
-                        Save changes
-                        <Check size={15} />
-                      </Submit>
-                    </div>
-                  </Form>
-                </section>
-              </div>
-            </>
-          )}
-
-          {(
-            [
-              "Conversation Review",
-              "Schedule History",
-              "Administrative Audit Logs",
-            ] as Page[]
-          ).includes(page) &&
-            actor.role === "admin" && (
-              <PrivacyDesk
-                view={
-                  page as
-                    | "Conversation Review"
-                    | "Schedule History"
-                    | "Administrative Audit Logs"
-                }
-                actor={actor}
-                profiles={state.profiles}
-                tickets={state.tickets}
-              />
-            )}
-          {page === "Activity logs" && actor.role === "admin" && (
-            <>
-              <SectionHead
-                title="Operations & activity"
-                description="Track payments and output delivery across your entire workspace."
-              />
-              <section className="panel operations-matrix">
-                <div className="panel-head">
-                  <div>
-                    <h2>Payment and delivery status</h2>
-                    <p>All client requests</p>
-                  </div>
-                </div>
-                <table>
-                  <thead>
-                    <tr>
-                      <th scope="col">Payment</th>
-                      <th scope="col">Output delivered</th>
-                      <th scope="col">Awaiting output</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <th scope="row">Fully paid</th>
-                      <td>
-                        <strong>{requestStatusCount(true, true)}</strong>
-                      </td>
-                      <td>
-                        <strong>{requestStatusCount(true, false)}</strong>
-                      </td>
-                    </tr>
-                    <tr>
-                      <th scope="row">Not fully paid</th>
-                      <td>
-                        <strong>{requestStatusCount(false, true)}</strong>
-                      </td>
-                      <td>
-                        <strong>{requestStatusCount(false, false)}</strong>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-                <p className="matrix-note">
-                  Not fully paid includes pending, verified, or no payment
-                  record.
-                </p>
-              </section>
-              <section className="panel oversight-panel">
-                <div className="panel-head">
-                  <div>
-                    <h2>Request oversight</h2>
-                    <p>Payment and delivery for each request.</p>
-                  </div>
-                </div>
-                <DataTable
-                  data={mine}
-                  mobileCard={oversightCard}
-                  columns={[
-                    {
-                      accessorKey: "title",
-                      header: "Request",
-                      cell: ({ row }) => titleCell(row.original),
-                    },
-                    {
-                      id: "client",
-                      header: "Client",
-                      cell: ({ row }) => person(row.original.clientId)?.name,
-                    },
-                    {
-                      id: "payment",
-                      header: "Payment",
-                      cell: ({ row }) => (
-                        <Badge>{paymentSummary(state, row.original.id)}</Badge>
-                      ),
-                    },
-                    {
-                      id: "output",
-                      header: "Output",
-                      cell: ({ row }) => (
-                        <Badge
-                          tone={row.original.deliveredAt ? "paid" : "pending"}
-                        >
-                          {row.original.deliveredAt
-                            ? "Delivered"
-                            : "Not delivered"}
-                        </Badge>
-                      ),
-                    },
-                    {
-                      accessorKey: "status",
-                      header: "Request status",
-                      cell: ({ row }) => <Badge>{row.original.status}</Badge>,
-                    },
-                  ]}
-                  onRow={(t) => setDialog({ type: "ticket", id: t.id })}
-                />
-              </section>
-              <section className="panel audit-panel">
-                <div className="panel-head">
-                  <div>
-                    <h2>Workspace activity log</h2>
-                    <p>Changes made across the workspace.</p>
-                  </div>
-                </div>
-                <DataTable
-                  data={state.audit}
-                  mobileCard={auditCard}
-                  mobileSortLabel="Sort activity"
-                  columns={[
-                    {
-                      accessorKey: "createdAt",
-                      header: "Time",
-                      cell: ({ row }) =>
-                        `${dateText(row.original.createdAt)} · ${timeText(row.original.createdAt)}`,
-                    },
-                    {
-                      id: "actor",
-                      header: "Account",
-                      cell: ({ row }) =>
-                        person(row.original.actorId)?.name || "Team",
-                    },
-                    { accessorKey: "text", header: "Activity" },
-                    {
-                      id: "ticket",
-                      header: "Request",
-                      cell: ({ row }) => {
-                        const t = mine.find(
-                          (t) => t.id === row.original.ticketId,
-                        );
-                        return t ? (
-                          <button
-                            className="text-button"
-                            onClick={() =>
-                              setDialog({ type: "ticket", id: t.id })
-                            }
-                          >
-                            NX-{t.number}
-                            <ArrowUpRight size={12} />
-                          </button>
-                        ) : (
-                          "—"
-                        );
+                    columns={[
+                      {
+                        accessorKey: "name",
+                        header: "File name",
+                        cell: ({ row }) => (
+                          <div className="payment-cell">
+                            <span
+                              className={`file-icon ${row.original.isOutput ? "output" : ""}`}
+                            >
+                              <FileText size={21} />
+                            </span>
+                            <div>
+                              <strong>{row.original.name}</strong>
+                              <small>
+                                {row.original.isOutput
+                                  ? "Request output"
+                                  : "Shared document"}{" "}
+                                ·{" "}
+                                {row.original.size < 1024 * 1024
+                                  ? `${Math.max(1, Math.round(row.original.size / 1024))} KB`
+                                  : `${(row.original.size / 1024 / 1024).toFixed(1)} MB`}
+                              </small>
+                            </div>
+                          </div>
+                        ),
                       },
-                    },
-                  ]}
-                  pageSize={8}
-                />
-              </section>
-            </>
-          )}
+                      {
+                        id: "owner",
+                        header: "Shared by",
+                        cell: ({ row }) =>
+                          person(row.original.ownerId)?.name || "Team",
+                      },
+                      {
+                        accessorKey: "createdAt",
+                        header: "Uploaded",
+                        cell: ({ row }) => dateText(row.original.createdAt),
+                      },
+                      {
+                        accessorKey: "reviewed",
+                        header: "Status",
+                        cell: ({ row }) => (
+                          <Badge
+                            tone={row.original.reviewed ? "paid" : "pending"}
+                          >
+                            {row.original.reviewed ? "Reviewed" : "To review"}
+                          </Badge>
+                        ),
+                      },
+                      {
+                        id: "actions",
+                        header: "",
+                        enableSorting: false,
+                        cell: ({ row }) => documentActions(row.original),
+                      },
+                    ]}
+                    empty="A fresh folder. Upload your first document to get started."
+                  />
+                </section>
+              </>
+            )}
 
-          {page === "Tools & software" && (
-            <>
-              <SectionHead
-                title="Tools & integrations"
-                description="The tools behind your workspace. Simple, connected, and ready to grow."
-              />
-              <div className="tools-grid">
-                {[
-                  {
-                    name: "Supabase",
-                    label: "DATABASE · AUTH · FILES",
-                    text: "Your accounts, workspace data, and private documents, connected in one place.",
-                    letter: "S",
-                    color: "mint",
-                    url: "https://supabase.com/docs",
-                    status:
-                      mode === "demo"
-                        ? "Integration ready · setup required"
-                        : "Connected",
-                  },
-                  {
-                    name: "FullCalendar",
-                    label: "SCHEDULING",
-                    text: "Schedule appointments and review upcoming meetings with your assistant.",
-                    letter: "F",
-                    color: "purple",
-                    url: "https://fullcalendar.io/docs",
-                    status: "Active",
-                  },
-                  {
-                    name: "TanStack Table",
-                    label: "YOUR WORK, ORGANIZED",
-                    text: "Sortable, paginated tables that make the details easier to find.",
-                    letter: "T",
-                    color: "peach",
-                    url: "https://tanstack.com/table/latest",
-                    status: "Active",
-                  },
-                  {
-                    name: "Resend",
-                    label: "EMAIL NOTIFICATIONS",
-                    text: "A server-side email function for confirmed payments. Requires your API key and a verified sender.",
-                    letter: "R",
-                    color: "gold",
-                    url: "https://resend.com/docs",
-                    status: "Integration ready · setup required",
-                  },
-                  {
-                    name: "Git + GitHub",
-                    label: "SOURCE CONTROL",
-                    text: "Prototype 1 source code and its preserved release are available in the public repository.",
-                    letter: "G",
-                    color: "purple",
-                    url: "https://github.com/Seperoth/nexus-va-prototype-1",
-                    status: "Prototype 1 repository",
-                  },
-                  {
-                    name: "Railway",
-                    label: "WHEN YOU’RE READY TO LAUNCH",
-                    text: "Hosting comes later. This prototype runs locally until you decide to deploy.",
-                    letter: "R",
-                    color: "mint",
-                    url: "https://docs.railway.com/",
-                    status: "Not deployed",
-                  },
-                ].map((tool) => (
-                  <a
-                    className="panel tool-card"
-                    key={tool.name}
-                    href={tool.url}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    <div>
-                      <span className={`tool-letter ${tool.color}`}>
-                        {tool.letter}
-                      </span>
-                      <ExternalLink size={16} />
-                    </div>
-                    <span className="eyebrow">{tool.label}</span>
-                    <h2>{tool.name}</h2>
-                    <p>{tool.text}</p>
-                    <small>
+            {page === "Profile" && (
+              <>
+                <SectionHead
+                  title="Your profile"
+                  description="Your profile, account details, and work preferences."
+                />
+                <div className="profile-layout">
+                  <aside className="panel profile-card">
+                    <Avatar name={actor.name} size="large" color={2} />
+                    <h2>{actor.name}</h2>
+                    <p>{companyName(actor.company)}</p>
+                    <Badge>
+                      {actor.role === "staff"
+                        ? "Virtual assistant"
+                        : actor.role}
+                    </Badge>
+                    <div className="profile-status">
                       <span className="online-dot" />
-                      {tool.status}
-                    </small>
-                  </a>
-                ))}
-              </div>
-            </>
-          )}
+                      {actor.status} account
+                      <ShieldCheck size={16} />
+                    </div>
+                    <div className="profile-detail">
+                      <span>Email address</span>
+                      <strong>{actor.email}</strong>
+                    </div>
+                    <div className="profile-detail">
+                      <span>Workspace</span>
+                      <strong>
+                        {mode === "demo"
+                          ? "Prototype demo"
+                          : "Supabase connected"}
+                      </strong>
+                    </div>
+                    <button
+                      className="button secondary"
+                      onClick={() => navigate("Files & documents")}
+                    >
+                      <FolderOpen size={16} />
+                      View my documents
+                    </button>
+                    <button
+                      className="text-button signout"
+                      onClick={() => void signout()}
+                    >
+                      <LogOut size={15} />
+                      Sign out
+                    </button>
+                  </aside>
+                  <section className="panel profile-form">
+                    <div className="panel-head">
+                      <div>
+                        <h2>Profile information</h2>
+                        <p>
+                          Keep your contact and workspace information current.
+                        </p>
+                      </div>
+                    </div>
+                    <Form
+                      key={actor.id}
+                      onSubmit={async (form) => {
+                        await perform(
+                          {
+                            type: "saveProfile",
+                            name: str(form, "name"),
+                            company: str(form, "company"),
+                            bio: str(form, "bio"),
+                            available: form.get("available") === "on",
+                            autoAssign: form.get("autoAssign") === "on",
+                            skillLevel: (str(form, "skillLevel") ||
+                              actor.skillLevel) as Difficulty,
+                            skills:
+                              actor.role === "staff"
+                                ? form.getAll("skills").map(String)
+                                : actor.skills,
+                          },
+                          "Profile updated.",
+                          false,
+                        );
+                      }}
+                    >
+                      <div className="form-row">
+                        <Field label="Full name">
+                          <input
+                            name="name"
+                            defaultValue={actor.name}
+                            required
+                            minLength={2}
+                          />
+                        </Field>
+                        <Field label="Company / organization">
+                          <input name="company" defaultValue={actor.company} />
+                        </Field>
+                      </div>
+                      <Field label="About you">
+                        <textarea
+                          name="bio"
+                          defaultValue={actor.bio}
+                          rows={4}
+                          maxLength={1000}
+                        />
+                      </Field>
+                      {actor.role === "staff" && (
+                        <>
+                          <div className="form-section-title">
+                            <h3>Your work, your way</h3>
+                            <p>
+                              Tell us what you’re available for. We’ll use these
+                              details when Admin assigns new work.
+                            </p>
+                          </div>
+                          <label className="toggle-row">
+                            <span>
+                              <strong>Available for new requests</strong>
+                              <small>
+                                Let clients and your team know you have room.
+                              </small>
+                            </span>
+                            <input
+                              type="checkbox"
+                              name="available"
+                              defaultChecked={actor.available}
+                            />
+                          </label>
+                          <p className="muted">
+                            Admin manages every VA assignment after agreement
+                            approval and confirmed payment.
+                          </p>
+                          <Field label="Maximum service difficulty">
+                            <select
+                              name="skillLevel"
+                              defaultValue={actor.skillLevel}
+                            >
+                              {difficulties.map((d) => (
+                                <option key={d}>{d}</option>
+                              ))}
+                            </select>
+                          </Field>
+                          <div className="field">
+                            <span>Your service skills</span>
+                            <div className="skills-options">
+                              {categories.map((c) => (
+                                <label key={c}>
+                                  <input
+                                    type="checkbox"
+                                    name="skills"
+                                    value={c}
+                                    defaultChecked={actor.skills.includes(c)}
+                                  />
+                                  {c}
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        </>
+                      )}
+                      <div className="form-actions">
+                        <span className="muted">
+                          Changes apply to your workspace profile.
+                        </span>
+                        <Submit busy={busy}>
+                          Save changes
+                          <Check size={15} />
+                        </Submit>
+                      </div>
+                    </Form>
+                  </section>
+                </div>
+              </>
+            )}
+
+            {(
+              [
+                "Conversation Review",
+                "Schedule History",
+                "Administrative Audit Logs",
+              ] as Page[]
+            ).includes(page) &&
+              actor.role === "admin" && (
+                <PrivacyDesk
+                  view={
+                    page as
+                      | "Conversation Review"
+                      | "Schedule History"
+                      | "Administrative Audit Logs"
+                  }
+                  actor={actor}
+                  profiles={state.profiles}
+                  tickets={state.tickets}
+                />
+              )}
+            {page === "Activity logs" && actor.role === "admin" && (
+              <>
+                <SectionHead
+                  title="Operations & activity"
+                  description="Track payments and output delivery across your entire workspace."
+                />
+                <section className="panel operations-matrix">
+                  <div className="panel-head">
+                    <div>
+                      <h2>Payment and delivery status</h2>
+                      <p>All client requests</p>
+                    </div>
+                  </div>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th scope="col">Payment</th>
+                        <th scope="col">Output delivered</th>
+                        <th scope="col">Awaiting output</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <th scope="row">Fully paid</th>
+                        <td>
+                          <strong>{requestStatusCount(true, true)}</strong>
+                        </td>
+                        <td>
+                          <strong>{requestStatusCount(true, false)}</strong>
+                        </td>
+                      </tr>
+                      <tr>
+                        <th scope="row">Not fully paid</th>
+                        <td>
+                          <strong>{requestStatusCount(false, true)}</strong>
+                        </td>
+                        <td>
+                          <strong>{requestStatusCount(false, false)}</strong>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <p className="matrix-note">
+                    Not fully paid includes pending, verified, or no payment
+                    record.
+                  </p>
+                </section>
+                <section className="panel oversight-panel">
+                  <div className="panel-head">
+                    <div>
+                      <h2>Request oversight</h2>
+                      <p>Payment and delivery for each request.</p>
+                    </div>
+                  </div>
+                  <DataTable
+                    data={mine}
+                    mobileCard={oversightCard}
+                    columns={[
+                      {
+                        accessorKey: "title",
+                        header: "Request",
+                        cell: ({ row }) => titleCell(row.original),
+                      },
+                      {
+                        id: "client",
+                        header: "Client",
+                        cell: ({ row }) => person(row.original.clientId)?.name,
+                      },
+                      {
+                        id: "payment",
+                        header: "Payment",
+                        cell: ({ row }) => (
+                          <Badge>
+                            {paymentSummary(state, row.original.id)}
+                          </Badge>
+                        ),
+                      },
+                      {
+                        id: "output",
+                        header: "Output",
+                        cell: ({ row }) => (
+                          <Badge
+                            tone={row.original.deliveredAt ? "paid" : "pending"}
+                          >
+                            {row.original.deliveredAt
+                              ? "Delivered"
+                              : "Not delivered"}
+                          </Badge>
+                        ),
+                      },
+                      {
+                        accessorKey: "status",
+                        header: "Request status",
+                        cell: ({ row }) => <Badge>{row.original.status}</Badge>,
+                      },
+                    ]}
+                    onRow={(t) => setDialog({ type: "ticket", id: t.id })}
+                  />
+                </section>
+                <section className="panel audit-panel">
+                  <div className="panel-head">
+                    <div>
+                      <h2>Workspace activity log</h2>
+                      <p>Changes made across the workspace.</p>
+                    </div>
+                  </div>
+                  <DataTable
+                    data={state.audit}
+                    mobileCard={auditCard}
+                    mobileSortLabel="Sort activity"
+                    columns={[
+                      {
+                        accessorKey: "createdAt",
+                        header: "Time",
+                        cell: ({ row }) =>
+                          `${dateText(row.original.createdAt)} · ${timeText(row.original.createdAt)}`,
+                      },
+                      {
+                        id: "actor",
+                        header: "Account",
+                        cell: ({ row }) =>
+                          person(row.original.actorId)?.name || "Team",
+                      },
+                      { accessorKey: "text", header: "Activity" },
+                      {
+                        id: "ticket",
+                        header: "Request",
+                        cell: ({ row }) => {
+                          const t = mine.find(
+                            (t) => t.id === row.original.ticketId,
+                          );
+                          return t ? (
+                            <button
+                              className="text-button"
+                              onClick={() =>
+                                setDialog({ type: "ticket", id: t.id })
+                              }
+                            >
+                              NX-{t.number}
+                              <ArrowUpRight size={12} />
+                            </button>
+                          ) : (
+                            "—"
+                          );
+                        },
+                      },
+                    ]}
+                    pageSize={8}
+                  />
+                </section>
+              </>
+            )}
+
+            {page === "Tools & software" && (
+              <>
+                <SectionHead
+                  title="Tools & integrations"
+                  description="The tools behind your workspace. Simple, connected, and ready to grow."
+                />
+                <div className="tools-grid">
+                  {[
+                    {
+                      name: "Supabase",
+                      label: "DATABASE · AUTH · FILES",
+                      text: "Your accounts, workspace data, and private documents, connected in one place.",
+                      letter: "S",
+                      color: "mint",
+                      url: "https://supabase.com/docs",
+                      status:
+                        mode === "demo"
+                          ? "Integration ready · setup required"
+                          : "Connected",
+                    },
+                    {
+                      name: "FullCalendar",
+                      label: "SCHEDULING",
+                      text: "Schedule appointments and review upcoming meetings with your assistant.",
+                      letter: "F",
+                      color: "purple",
+                      url: "https://fullcalendar.io/docs",
+                      status: "Active",
+                    },
+                    {
+                      name: "TanStack Table",
+                      label: "YOUR WORK, ORGANIZED",
+                      text: "Sortable, paginated tables that make the details easier to find.",
+                      letter: "T",
+                      color: "peach",
+                      url: "https://tanstack.com/table/latest",
+                      status: "Active",
+                    },
+                    {
+                      name: "Resend",
+                      label: "EMAIL NOTIFICATIONS",
+                      text: "A server-side email function for confirmed payments. Requires your API key and a verified sender.",
+                      letter: "R",
+                      color: "gold",
+                      url: "https://resend.com/docs",
+                      status: "Integration ready · setup required",
+                    },
+                    {
+                      name: "Git + GitHub",
+                      label: "SOURCE CONTROL",
+                      text: "Prototype 1 source code and its preserved release are available in the public repository.",
+                      letter: "G",
+                      color: "purple",
+                      url: "https://github.com/Seperoth/nexus-va-prototype-1",
+                      status: "Prototype 1 repository",
+                    },
+                    {
+                      name: "Railway",
+                      label: "WHEN YOU’RE READY TO LAUNCH",
+                      text: "Hosting comes later. This prototype runs locally until you decide to deploy.",
+                      letter: "R",
+                      color: "mint",
+                      url: "https://docs.railway.com/",
+                      status: "Not deployed",
+                    },
+                  ].map((tool) => (
+                    <a
+                      className="panel tool-card"
+                      key={tool.name}
+                      href={tool.url}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <div>
+                        <span className={`tool-letter ${tool.color}`}>
+                          {tool.letter}
+                        </span>
+                        <ExternalLink size={16} />
+                      </div>
+                      <span className="eyebrow">{tool.label}</span>
+                      <h2>{tool.name}</h2>
+                      <p>{tool.text}</p>
+                      <small>
+                        <span className="online-dot" />
+                        {tool.status}
+                      </small>
+                    </a>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </main>
       </div>
@@ -2918,33 +3081,39 @@ export default function App() {
       {dialog && (
         <Modal
           key={`${dialog.type}-${dialog.id || dialog.templateId || "new"}`}
-          variant={dialog.type === "request" ? "page" : ["pay", "feedback", "confirmCancel"].includes(dialog.type) ? "modal" : "drawer"}
+          variant={
+            dialog.type === "request"
+              ? "page"
+              : ["pay", "feedback", "confirmCancel"].includes(dialog.type)
+                ? "modal"
+                : "drawer"
+          }
           title={
             dialog.type === "confirmCancel"
               ? "Cancel this appointment?"
               : dialog.type === "request"
-              ? "Create a request"
-              : dialog.type === "appointment"
-                ? "Schedule an appointment"
-                : dialog.type === "reschedule"
-                  ? "Reschedule appointment"
-                  : dialog.type === "editAppointment"
-                    ? "Edit appointment details"
-                    : dialog.type === "report"
-                      ? "Report a conversation problem"
-                      : dialog.type === "payment"
-                        ? "Create a payment request"
-                        : dialog.type === "pay"
-                          ? "Confirm test payment"
-                          : dialog.type === "feedback"
-                            ? "How did we do?"
-                            : dialog.type === "help"
-                              ? "Workspace guide"
-                              : dialog.type === "assistant"
-                                ? "Assistant profile"
-                                : dialog.type === "cancel"
-                                  ? "Appointment details"
-                                  : "Request details"
+                ? "Create a request"
+                : dialog.type === "appointment"
+                  ? "Schedule an appointment"
+                  : dialog.type === "reschedule"
+                    ? "Reschedule appointment"
+                    : dialog.type === "editAppointment"
+                      ? "Edit appointment details"
+                      : dialog.type === "report"
+                        ? "Report a conversation problem"
+                        : dialog.type === "payment"
+                          ? "Create a payment request"
+                          : dialog.type === "pay"
+                            ? "Review price & payment"
+                            : dialog.type === "feedback"
+                              ? "How did we do?"
+                              : dialog.type === "help"
+                                ? "Workspace guide"
+                                : dialog.type === "assistant"
+                                  ? "Assistant profile"
+                                  : dialog.type === "cancel"
+                                    ? "Appointment details"
+                                    : "Request details"
           }
           subtitle={
             dialog.type === "request"
@@ -2954,14 +3123,45 @@ export default function App() {
           close={closeDialog}
           wide={dialog.type === "ticket"}
         >
-          {actionError && <div className="inline-action-error" role="alert"><CircleHelp size={18} /><span>{actionError}</span></div>}
-          {dialog.type === "confirmCancel" && <div className="confirmation-content">
-            <p><strong>{myAppointments.find(a => a.id === dialog.id)?.title || "This appointment"}</strong> will be removed from the schedule. The other participant will be notified.</p>
-            <div className="form-actions">
-              <button className="button secondary" disabled={busy} onClick={() => setDialog({type:"cancel", id:dialog.id})}>Keep appointment</button>
-              <button className="button danger-secondary" disabled={busy} onClick={() => void perform({type:"cancelAppointment", appointmentId:dialog.id!}, "Appointment cancelled.")}>{busy ? "Cancelling…" : "Cancel appointment"}</button>
+          {actionError && (
+            <div className="inline-action-error" role="alert">
+              <CircleHelp size={18} />
+              <span>{actionError}</span>
             </div>
-          </div>}
+          )}
+          {dialog.type === "confirmCancel" && (
+            <div className="confirmation-content">
+              <p>
+                <strong>
+                  {myAppointments.find((a) => a.id === dialog.id)?.title ||
+                    "This appointment"}
+                </strong>{" "}
+                will be removed from the schedule. The other participant will be
+                notified.
+              </p>
+              <div className="form-actions">
+                <button
+                  className="button secondary"
+                  disabled={busy}
+                  onClick={() => setDialog({ type: "cancel", id: dialog.id })}
+                >
+                  Keep appointment
+                </button>
+                <button
+                  className="button danger-secondary"
+                  disabled={busy}
+                  onClick={() =>
+                    void perform(
+                      { type: "cancelAppointment", appointmentId: dialog.id! },
+                      "Appointment cancelled.",
+                    )
+                  }
+                >
+                  {busy ? "Cancelling…" : "Cancel appointment"}
+                </button>
+              </div>
+            </div>
+          )}
           {dialog.type === "assistant" &&
             (() => {
               const profile = state.profiles.find(
@@ -3034,7 +3234,7 @@ export default function App() {
                     difficulty: str(form, "difficulty") as Difficulty,
                     dueDate: str(form, "dueDate"),
                   },
-                  "Your request is live. Your test payment is ready in Billing.",
+                  "Request submitted to Admin for review.",
                 );
               }}
             >
@@ -3042,14 +3242,24 @@ export default function App() {
                 <input
                   name="title"
                   placeholder="e.g. A fresh set of social media posts"
-                  defaultValue={requestTemplates.find((t) => t.id === dialog.templateId)?.title}
+                  defaultValue={
+                    requestTemplates.find((t) => t.id === dialog.templateId)
+                      ?.title
+                  }
                   required
                   minLength={5}
                   maxLength={150}
                 />
               </Field>
               <Field label="What would you like help with?">
-                <select name="category" required defaultValue={requestTemplates.find((t) => t.id === dialog.templateId)?.category || ""}>
+                <select
+                  name="category"
+                  required
+                  defaultValue={
+                    requestTemplates.find((t) => t.id === dialog.templateId)
+                      ?.category || ""
+                  }
+                >
                   <option value="" disabled>
                     Choose a service
                   </option>
@@ -3065,7 +3275,10 @@ export default function App() {
                 <textarea
                   name="description"
                   placeholder="Describe the expected output, requirements, and reference material."
-                  defaultValue={requestTemplates.find((t) => t.id === dialog.templateId)?.description}
+                  defaultValue={
+                    requestTemplates.find((t) => t.id === dialog.templateId)
+                      ?.description
+                  }
                   rows={4}
                   required
                   minLength={15}
@@ -3105,7 +3318,12 @@ export default function App() {
                         type="radio"
                         name="difficulty"
                         value={d}
-                        defaultChecked={d === (requestTemplates.find((t) => t.id === dialog.templateId)?.difficulty || "Medium")}
+                        defaultChecked={
+                          d ===
+                          (requestTemplates.find(
+                            (t) => t.id === dialog.templateId,
+                          )?.difficulty || "Medium")
+                        }
                       />
                       <span className={`difficulty-bars difficulty-${i}`}>
                         <i />
@@ -3129,9 +3347,9 @@ export default function App() {
               <div className="info-note">
                 <ShieldCheck size={17} />
                 <p>
-                  Submitting creates a test payment for your budget. Pay it in
-                  Billing to match with an available assistant, or let an
-                  assistant accept the request first.
+                  Your request goes directly to Admin. Admin sends the service
+                  agreement, approves your signed copy, sets the price, confirms
+                  payment, and assigns a VA.
                 </p>
               </div>
               <div className="form-actions">
@@ -3154,15 +3372,14 @@ export default function App() {
               const t = mine.find((t) => t.id === dialog.id);
               if (!t) return <p>Request not found.</p>;
               const assistant = person(t.assigneeId);
-              const docs = state.documents.filter((d) => d.ticketId === t.id);
-              const payments = state.payments.filter(
-                (p) => p.ticketId === t.id,
+              const docs = state.documents.filter(
+                (d) => d.ticketId === t.id && !d.purpose,
               );
               return (
                 <div className="ticket-detail">
                   <div className="ticket-topline">
                     <span>NX-{t.number}</span>
-                    <Badge>{t.status}</Badge>
+                    <Badge>{requestStage(state, t)}</Badge>
                     <Badge
                       tone={`difficulty-badge ${t.difficulty.toLowerCase()}`}
                     >
@@ -3190,112 +3407,53 @@ export default function App() {
                             {assistant.name}
                           </>
                         ) : (
-                          "Finding the right match"
+                          "Awaiting Admin assignment"
                         )}
                       </strong>
                     </div>
                   </div>
-                  {actor.role === "admin" &&
-                    t.status !== "Completed" &&
-                    !t.deliveredAt && (
-                      <Form
-                        className="assignment-form"
-                        onSubmit={async (form) => {
-                          await perform(
-                            {
-                              type: "assignTicket",
-                              ticketId: t.id,
-                              staffId: str(form, "staffId"),
-                            },
-                            "Assistant assigned.",
-                            false,
-                          );
-                        }}
-                      >
-                        <Field label="Assign an assistant">
-                          <select
-                            name="staffId"
-                            defaultValue={t.assigneeId || ""}
-                            required
-                          >
-                            <option value="" disabled>
-                              Choose an assistant
-                            </option>
-                            {state.profiles
-                              .filter((p) => p.role === "staff")
-                              .map((p) => (
-                                <option key={p.id} value={p.id}>
-                                  {p.name}
-                                </option>
-                              ))}
-                          </select>
-                        </Field>
-                        <Submit busy={busy}>Assign</Submit>
-                      </Form>
-                    )}
-                  <div className="ticket-section">
-                    <div className="ticket-section-head">
-                      <h3>Payment tracking</h3>
-                      {actor.role !== "client" &&
-                        t.assigneeId &&
-                        t.status !== "Completed" && (
-                          <button
-                            className="text-button"
-                            onClick={() =>
-                              setDialog({ type: "payment", id: t.id })
-                            }
-                          >
-                            <Plus size={14} />
-                            Request payment
-                          </button>
-                        )}
-                    </div>
-                    {payments.length ? (
-                      payments.map((p) => (
-                        <div className="ticket-payment" key={p.id}>
-                          <span className="payment-icon">
-                            <CreditCard size={18} />
-                          </span>
-                          <div>
-                            <strong>{p.description}</strong>
-                            <small>{money(p.amount)} · Simulated payment</small>
-                          </div>
-                          <Badge>{p.status}</Badge>
-                          {actor.role === "client" && p.status !== "Paid" && (
-                            <button
-                              className="button primary compact"
-                              onClick={() =>
-                                setDialog({ type: "pay", id: p.id })
-                              }
-                            >
-                              Pay
-                            </button>
-                          )}
-                          {actor.role !== "client" &&
-                            p.status === "Pending" && (
-                              <button
-                                className="button secondary compact"
-                                disabled={busy}
-                                onClick={() =>
-                                  void perform(
-                                    { type: "verifyPayment", paymentId: p.id },
-                                    "Payment request verified.",
-                                    false,
-                                  )
-                                }
-                              >
-                                Verify
-                              </button>
-                            )}
-                        </div>
-                      ))
-                    ) : (
-                      <p className="muted">
-                        Your assistant will set up payment tracking after you
-                        agree on the details.
-                      </p>
-                    )}
-                  </div>
+                  <RequestWorkflowPanel
+                    key={t.id}
+                    state={state}
+                    ticket={t}
+                    actor={actor}
+                    busy={busy}
+                    execute={(command, success) =>
+                      perform(command, success, false)
+                    }
+                    upload={async (file, signed, acknowledged) => {
+                      if (lock.current) return;
+                      lock.current = true;
+                      setBusy(true);
+                      setActionError("");
+                      try {
+                        setState(
+                          await uploadAgreement(
+                            file,
+                            actor,
+                            t.id,
+                            signed,
+                            acknowledged,
+                          ),
+                        );
+                        showToast(
+                          signed
+                            ? "Signed agreement sent for Admin review."
+                            : "Agreement PDF sent to client.",
+                        );
+                      } catch (error) {
+                        const message =
+                          error instanceof Error
+                            ? error.message
+                            : "Upload failed.";
+                        setActionError(message);
+                        showToast(message, true);
+                      } finally {
+                        lock.current = false;
+                        setBusy(false);
+                      }
+                    }}
+                  />
                   <div className="ticket-section">
                     <div className="ticket-section-head">
                       <h3>Files & final output</h3>
@@ -3355,21 +3513,6 @@ export default function App() {
                       >
                         <MessageSquare size={16} />
                         Open conversation
-                      </button>
-                    )}
-                    {actor.role === "staff" && !t.assigneeId && (
-                      <button
-                        className="button primary"
-                        disabled={busy}
-                        onClick={() =>
-                          void perform(
-                            { type: "acceptTicket", ticketId: t.id },
-                            "Request accepted. Your conversation is ready.",
-                          )
-                        }
-                      >
-                        <Check size={16} />
-                        Accept request
                       </button>
                     )}
                     {(actor.id === t.assigneeId || actor.role === "admin") &&
@@ -3587,7 +3730,9 @@ export default function App() {
                     <button
                       className="button danger-secondary"
                       disabled={busy}
-                      onClick={() => setDialog({ type: "confirmCancel", id: a.id })}
+                      onClick={() =>
+                        setDialog({ type: "confirmCancel", id: a.id })
+                      }
                     >
                       Cancel appointment
                     </button>
@@ -3862,110 +4007,33 @@ export default function App() {
                 </Form>
               );
             })()}
-          {dialog.type === "payment" && (
-            <Form
-              onSubmit={async (form) => {
-                await perform(
-                  {
-                    type: "createPayment",
-                    ticketId: dialog.id!,
-                    amount: Number(form.get("amount")),
-                    description: str(form, "description"),
-                  },
-                  "Payment request sent to your client.",
-                );
-              }}
-            >
-              <div className="info-note">
-                <CreditCard size={18} />
-                <p>
-                  Create a clear payment request for the agreed work. Your
-                  client will see it in Billing and on the request.
-                </p>
-              </div>
-              <Field label="What is this payment for?">
-                <input
-                  name="description"
-                  placeholder="e.g. Additional video edits — agreed scope"
-                  required
-                  maxLength={300}
-                />
-              </Field>
-              <Field label="Amount (USD)">
-                <div className="input-prefix">
-                  <span>$</span>
-                  <input
-                    type="number"
-                    name="amount"
-                    min={1}
-                    max={1000000}
-                    step="0.01"
-                    required
-                    placeholder="150"
-                  />
-                </div>
-              </Field>
-              <div className="form-actions">
-                <button
-                  className="button secondary"
-                  type="button"
-                  onClick={closeDialog}
-                >
-                  Cancel
-                </button>
-                <Submit busy={busy}>
-                  Request payment
-                  <ArrowUpRight size={15} />
-                </Submit>
-              </div>
-            </Form>
-          )}
           {dialog.type === "pay" &&
             (() => {
-              const p = state.payments.find((p) => p.id === dialog.id);
-              return p ? (
-                <div className="checkout">
-                  <span className="checkout-icon">
-                    <ShieldCheck size={30} />
-                  </span>
-                  <span className="eyebrow">SIMULATED PAYMENT</span>
-                  <h2>{money(p.amount)}</h2>
-                  <p>{p.description}</p>
-                  <div className="checkout-summary">
-                    <span>
-                      Payment method<strong>Prototype test payment</strong>
-                    </span>
-                    <span>
-                      Real money charged<strong>$0</strong>
-                    </span>
-                    <span>
-                      Test amount<strong>{money(p.amount)}</strong>
-                    </span>
-                  </div>
-                  <p className="checkout-note">
-                    No card details needed. Confirming records a simulated
-                    payment, notifies your assistant, and enables skill-based
-                    matching for unassigned work.
-                  </p>
+              const payment = state.payments.find((p) => p.id === dialog.id);
+              const ticket = mine.find((t) => t.id === payment?.ticketId);
+              return payment && ticket ? (
+                <div className="request-workflow">
+                  <h2>{ticket.title}</h2>
+                  <SubscriptionSummary
+                    state={state}
+                    ticket={ticket}
+                    actor={actor}
+                    busy={busy}
+                    execute={(c, m) => perform(c, m, false)}
+                  />
+                  <PaymentReview
+                    state={state}
+                    ticket={ticket}
+                    actor={actor}
+                    busy={busy}
+                    payment={payment}
+                    execute={(c, m) => perform(c, m, false)}
+                  />
                   <button
-                    className="button primary"
-                    disabled={busy || p.status === "Paid"}
-                    onClick={() =>
-                      void perform(
-                        { type: "pay", paymentId: p.id },
-                        "Test payment confirmed. No real money was charged.",
-                      )
-                    }
+                    className="text-button"
+                    onClick={() => setDialog({ type: "ticket", id: ticket.id })}
                   >
-                    {busy
-                      ? "Confirming…"
-                      : p.status === "Paid"
-                        ? "Already paid"
-                        : "Confirm test payment"}
-                    <Check size={16} />
-                  </button>
-                  <button className="text-button" onClick={closeDialog}>
-                    Back to my workspace
+                    View full request and agreement
                   </button>
                 </div>
               ) : (
@@ -4003,16 +4071,16 @@ export default function App() {
                   text: "In the Client workspace, create a request with a service, budget, difficulty, and due date.",
                 },
                 {
-                  title: "2. Find your person",
-                  text: "Pay the initial test payment for automatic matching, or switch to Virtual assistant and accept a matching open request.",
+                  title: "2. Review and sign",
+                  text: "Admin reviews the request, sends the PDF agreement, and reviews your signed upload.",
                 },
                 {
-                  title: "3. Keep the conversation going",
-                  text: "Use Messages to agree on the details. The assistant can create additional payment tracking after the initial request is paid.",
+                  title: "3. Review service pricing",
+                  text: "After agreement approval, Admin sets the price and a one-time or subscription arrangement.",
                 },
                 {
-                  title: "4. Make it official, safely",
-                  text: "The client confirms a test payment in Billing. Staff can verify pending payment requests. No real money is charged.",
+                  title: "4. Pay and await assignment",
+                  text: "The client follows the payment instructions and submits a reference. Admin independently confirms receipt before assigning a VA.",
                 },
                 {
                   title: "5. Share something great",
@@ -4024,7 +4092,8 @@ export default function App() {
                 },
               ].map((g) => (
                 <details className="guide-accordion" key={g.title}>
-                  <summary>{g.title}</summary><p>{g.text}</p>
+                  <summary>{g.title}</summary>
+                  <p>{g.text}</p>
                 </details>
               ))}
               <div className="info-note">
@@ -4048,8 +4117,10 @@ export default function App() {
           className={`toast ${toast.error ? "error" : ""}`}
           role={toast.error ? "alert" : "status"}
           aria-atomic="true"
-          onMouseEnter={() => setToastPaused(true)} onMouseLeave={() => setToastPaused(false)}
-          onFocus={() => setToastPaused(true)} onBlur={() => setToastPaused(false)}
+          onMouseEnter={() => setToastPaused(true)}
+          onMouseLeave={() => setToastPaused(false)}
+          onFocus={() => setToastPaused(true)}
+          onBlur={() => setToastPaused(false)}
         >
           {toast.error ? <CircleHelp size={19} /> : <CircleCheck size={19} />}
           <span>{toast.text}</span>
